@@ -1,0 +1,18 @@
+VGP Algorithmic Trading Results
+Generated on: Sat Sep 27 01:03:45 2025
+
+==============================
+
+Configuration:
+- Population size: 100
+- Chromosome length: 50
+- Max generations: 100
+- Training data size: 1405
+- Test data size: 352
+
+Best Strategy: Individual[50 genes, fitness=0.9176]
+Training Fitness: 0.917633
+
+Evolution Progress:
+Gen 0: Best=0.917633, Avg=0.498484
+Gen 1: Best=0.917633, Avg=0.498484

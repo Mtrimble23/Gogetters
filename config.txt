@@ -1,0 +1,32 @@
+# VGP Algorithmic Trader Configuration File
+
+# VGP Evolution Parameters
+population_size=100
+chromosome_length=50
+max_generations=100
+mutation_rate=0.1
+crossover_rate=0.8
+elite_ratio=0.1
+
+# Data Parameters
+# data_file=market_data.csv
+training_size=800
+test_size=200
+
+# Trading Parameters
+initial_capital=10000.0
+transaction_cost=0.001
+allow_short_selling=true
+
+# Fitness Function Weights (must sum to 1.0)
+return_weight=0.4
+sharpe_weight=0.3
+drawdown_weight=0.2
+stability_weight=0.1
+
+# Output
+output_file=vgp_trading_results.txt
+verbose=true
+
+# Random Seed (for reproducibility)
+random_seed=42
