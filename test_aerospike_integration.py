@@ -43,11 +43,11 @@ class AerospikeBackendTester:
         self.results["tests_run"] += 1
         if success:
             self.results["tests_passed"] += 1
-            print(f"✅ {test_name}: PASSED {details}")
+            print(f"SUCCESS: {test_name}: PASSED {details}")
         else:
             self.results["tests_failed"] += 1
             self.results["errors"].append(f"{test_name}: {details}")
-            print(f"❌ {test_name}: FAILED {details}")
+            print(f"ERROR: {test_name}: FAILED {details}")
     
     async def test_health_check(self):
         """Test basic health check"""
@@ -269,7 +269,7 @@ class AerospikeBackendTester:
     
     async def test_aerospike_performance(self, num_analyses: int = 10):
         """Test Aerospike performance with multiple operations"""
-        print(f"\n🚀 Performance Test: Running {num_analyses} analyses...")
+        print(f"\nPerformance Test: Running {num_analyses} analyses...")
         
         symbols = random.choices(self.test_symbols, k=num_analyses)
         start_time = time.time()
@@ -314,28 +314,28 @@ class AerospikeBackendTester:
         success, aerospike_available = await self.test_detailed_health_check()
         
         if not aerospike_available:
-            print("\n⚠️  Aerospike not available, attempting to switch...")
+            print("\nWARNING: Aerospike not available, attempting to switch...")
             await self.test_switch_to_aerospike()
         
         # Phase 2: Data operations
-        print("\n💾 Phase 2: Data Operations Tests")
+        print("\nPhase 2: Data Operations Tests")
         await self.test_single_stock_analysis("AAPL")
         await self.test_single_stock_analysis("MSFT")
         await self.test_batch_analysis(["GOOGL", "TSLA", "AMZN"])
         
         # Phase 3: Data retrieval
-        print("\n🔍 Phase 3: Data Retrieval Tests")
+        print("\nPhase 3: Data Retrieval Tests")
         await self.test_data_retrieval("AAPL")
         await self.test_analysis_history("AAPL")
         await self.test_search_functionality()
         await self.test_symbols_endpoint()
         
         # Phase 4: Repository status
-        print("\n📊 Phase 4: Repository Status Tests")
+        print("\nPhase 4: Repository Status Tests")
         await self.test_data_status()
         
         # Phase 5: Performance tests
-        print("\n⚡ Phase 5: Performance Tests")
+        print("\nPhase 5: Performance Tests")
         await self.test_aerospike_performance(5)
         
         # Results summary

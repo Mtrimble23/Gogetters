@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""
+VTHacks26 Financial Risk Analysis API - Main Backend
+Clean architecture with real Yahoo Finance data
+"""
+
+import sys
+import os
+from typing import Dict, Any, List
+from datetime import datetime, timezone
+
+# Add src to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+try:
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    import uvicorn
+except ImportError as e:
+    print(f"❌ Missing dependency: {e}")
+    print("Run: pip3 install --break-system-packages fastapi uvicorn yfinance pandas numpy")
+    exit(1)
+
+from services.financial_risk_service import FinancialRiskService
+from repositories.aerospike_repository import AerospikeRepository
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="VTHacks26 Financial Risk Analysis API",
+    description="Real-time stock risk analysis with Yahoo Finance integration",
+    version="2.0.0"
+)
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize services
+financial_service = FinancialRiskService()
+aerospike_repo = AerospikeRepository()
+
+@app.get("/")
+async def root():
+    """API information and available endpoints"""
+    return {
+        "service": "VTHacks26 Financial Risk Analysis API",
+        "version": "2.0.0",
+        "status": "operational",
+        "supported_symbols": financial_service.get_supported_symbols(),
+        "endpoints": {
+            "health": "/health",
+            "single_analysis": "/risk-level/{symbol}",
+            "batch_analysis": "/risk-level",
+            "stats": "/stats",
+            "database_test": "/test-aerospike",
+            "documentation": "/docs"
+        },
+        "data_sources": [
+            "Yahoo Finance (real-time)",
+            "CBOE Volatility (calculated)",
+            "Aerospike Database (caching)"
+        ]
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    db_connected = aerospike_repo.is_connected()
+    
+    return {
+        "status": "healthy",
+        "service": "VTHacks26 Financial Risk Analysis API",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "database_connected": db_connected,
+        "supported_symbols": len(financial_service.get_supported_symbols())
+    }
+
+@app.get("/risk-level/{symbol}")
+async def analyze_single_stock(symbol: str):
+    """Analyze risk level for a single stock symbol"""
+    # Validate symbol
+    if not symbol or len(symbol) > 10 or not symbol.replace('.', '').replace('-', '').isalnum():
+        raise HTTPException(status_code=400, detail="Invalid symbol format")
+    
+    symbol = symbol.upper()
+    
+    # Check cache first
+    cached_result = aerospike_repo.get_stock_analysis(symbol)
+    if cached_result and cached_result.get('retrieved_from_cache'):
+        return {
+            "success": True,
+            "symbol": symbol,
+            "data": cached_result,
+            "source": "cache",
+            "cached_at": cached_result.get('cache_timestamp'),
+            "response_time": "< 0.001s"
+        }
+    
+    # Perform fresh analysis
+    start_time = datetime.now()
+    result = financial_service.analyze_single_stock(symbol)
+    end_time = datetime.now()
+    
+    response_time = (end_time - start_time).total_seconds()
+    
+    if not result['success']:
+        raise HTTPException(status_code=400, detail=result['error'])
+    
+    # Store in cache
+    aerospike_repo.store_stock_analysis(symbol, result)
+    
+    return {
+        "success": True,
+        "symbol": symbol,
+        "financial_data": result['financial_data'],
+        "risk_analysis": result['risk_analysis'],
+        "source": "fresh_analysis",
+        "response_time": f"{response_time:.3f}s",
+        "timestamp": result['timestamp']
+    }
+
+@app.post("/risk-level")
+async def analyze_batch_stocks(request_data: Dict[str, Any]):
+    """Analyze risk levels for multiple stock symbols"""
+    symbols = request_data.get('symbols', [])
+    custom_factors = request_data.get('custom_factors')
+    
+    if not symbols:
+        raise HTTPException(status_code=400, detail="No symbols provided")
+    
+    if len(symbols) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 symbols per request")
+    
+    # Validate symbols
+    for symbol in symbols:
+        if not symbol or len(symbol) > 10 or not symbol.replace('.', '').replace('-', '').isalnum():
+            raise HTTPException(status_code=400, detail=f"Invalid symbol format: {symbol}")
+    
+    # Perform batch analysis
+    start_time = datetime.now()
+    batch_result = financial_service.analyze_batch_stocks(symbols, custom_factors)
+    end_time = datetime.now()
+    
+    # Store results in cache
+    successful_results = {}
+    for result in batch_result['results']:
+        if result['success']:
+            successful_results[result['symbol']] = result
+    
+    if successful_results:
+        aerospike_repo.store_batch_analysis(successful_results)
+    
+    # Add response timing
+    batch_result['api_response_time'] = f"{(end_time - start_time).total_seconds():.3f}s"
+    
+    return batch_result
+
+@app.get("/stats")
+async def get_system_stats():
+    """Get comprehensive system statistics"""
+    service_stats = financial_service.get_service_stats()
+    repo_stats = aerospike_repo.get_repository_stats()
+    
+    return {
+        "service": service_stats,
+        "database": repo_stats,
+        "api_info": {
+            "version": "2.0.0",
+            "uptime_check": datetime.now(timezone.utc).isoformat(),
+            "endpoints_available": 6,
+            "max_batch_size": 10
+        }
+    }
+
+@app.get("/test-aerospike")
+async def test_aerospike_connection():
+    """Test Aerospike database connection"""
+    connection_test = aerospike_repo.test_connection()
+    
+    if connection_test['success']:
+        return {
+            "success": True,
+            "message": "Aerospike connection working perfectly",
+            "details": connection_test
+        }
+    else:
+        return {
+            "success": False,
+            "message": "Aerospike connection failed",
+            "error": connection_test.get('error', 'Unknown error'),
+            "details": connection_test
+        }
+
+@app.get("/cache/clear/{symbol}")
+async def clear_symbol_cache(symbol: str):
+    """Clear cache for a specific symbol"""
+    symbol = symbol.upper()
+    success = aerospike_repo.clear_cache(symbol)
+    
+    return {
+        "success": success,
+        "message": f"Cache cleared for {symbol}" if success else f"Failed to clear cache for {symbol}",
+        "symbol": symbol
+    }
+
+@app.get("/cache/status")
+async def get_cache_status():
+    """Get cache status and statistics"""
+    cached_symbols = aerospike_repo.get_cached_symbols()
+    
+    return {
+        "cache_enabled": aerospike_repo.is_connected(),
+        "cached_symbols": cached_symbols,
+        "cache_count": len(cached_symbols),
+        "database_status": "connected" if aerospike_repo.is_connected() else "disconnected"
+    }
+
+# Startup and shutdown events
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    print("🚀 VTHacks26 Financial Risk Analysis API")
+    print("=" * 60)
+    print("✅ Real-time Yahoo Finance integration")
+    print("✅ CBOE volatility calculation")
+    print("✅ Aerospike database caching")
+    print("✅ Comprehensive risk analysis")
+    print()
+    print(f"📊 Supported symbols: {', '.join(financial_service.get_supported_symbols())}")
+    print(f"🗄️  Database: {'Connected' if aerospike_repo.is_connected() else 'Disconnected (graceful fallback)'}")
+    print()
+    print("📚 API Documentation: http://localhost:8000/docs")
+    print("🔍 Health Check: http://localhost:8000/health")
+    print("📊 System Stats: http://localhost:8000/stats")
+    print("💡 Example: curl http://localhost:8000/risk-level/AAPL")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up on shutdown"""
+    aerospike_repo.close()
+    print("👋 VTHacks26 API shutdown complete")
+
+if __name__ == "__main__":
+    print("🚀 Starting VTHacks26 Financial Risk Analysis API...")
+    print("📊 API will be available at: http://localhost:8000")
+    print("📚 API Documentation: http://localhost:8000/docs")
+    print("💡 Press Ctrl+C to stop")
+    
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        log_level="info"
+    )
