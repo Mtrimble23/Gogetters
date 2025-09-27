@@ -361,10 +361,10 @@ async def get_stats():
 
 
 if __name__ == "__main__":
-    print("🚀 Starting Aerospike Test Backend...")
-    print("📊 API will be available at: http://localhost:8000")
-    print("📚 API Documentation: http://localhost:8000/docs")
-    print("🧪 Test Aerospike: http://localhost:8000/test-aerospike")
+    print("Starting Aerospike Test Backend...")
+    print("API will be available at: http://localhost:8000")
+    print("API Documentation: http://localhost:8000/docs")
+    print("Test Aerospike: http://localhost:8000/test-aerospike")
     
     uvicorn.run(
         app,

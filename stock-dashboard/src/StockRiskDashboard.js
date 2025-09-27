@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
+import LiquidEther from "./LiquidEther";
+import ClickSpark from "./ClickSpark";
+import StarBorder from "./StarBorder";
 
 // Single-file React component (Tailwind CSS required in the app)
 // Usage: place this component inside your React app. The frontend expects a backend API endpoint:
@@ -42,13 +45,13 @@ function prettyNumber(n) {
 function gradeColor(grade) {
   switch ((grade || "").toLowerCase()) {
     case "low":
-      return "bg-green-100 text-green-800";
+      return "bg-green-900/30 text-green-300 border border-green-700/50";
     case "medium":
-      return "bg-yellow-100 text-yellow-800";
+      return "bg-yellow-900/30 text-yellow-300 border border-yellow-700/50";
     case "high":
-      return "bg-red-100 text-red-800";
+      return "bg-red-900/30 text-red-300 border border-red-700/50";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "bg-gray-900/30 text-gray-300 border border-gray-700/50";
   }
 }
 
@@ -64,6 +67,12 @@ export default function StockRiskDashboard() {
   useEffect(() => {
     fetchStock(selected);
   }, [selected]);
+
+  useEffect(() => {
+    if (data && data.symbol) {
+      generateAISummary();
+    }
+  }, [data]);
 
   async function fetchStock(sym) {
     setLoading(true);
@@ -145,66 +154,93 @@ export default function StockRiskDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-slate-950 relative overflow-hidden p-6">
+      <div className="absolute inset-0 z-0">
+        <LiquidEther colors={['#1e293b', '#3b82f6', '#8b5cf6']} />
+      </div>
+      <div className="max-w-7xl mx-auto relative z-10">
         <header className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl md:text-3xl font-extrabold">Stock Risk Dashboard</h1>
-          <p className="text-sm text-slate-600">Quick, simple financial stats for everyday investors</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-white">Stock Risk Dashboard</h1>
+          <p className="text-sm text-slate-300">Quick, simple financial stats for everyday investors</p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Sidebar */}
-          <aside className="md:col-span-1 bg-white rounded-2xl shadow p-4 flex flex-col gap-4">
+          <StarBorder
+            as="aside"
+            className="md:col-span-1 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-4 flex flex-col gap-4"
+            color="#8b5cf6"
+            speed="8s"
+          >
             <div>
-              <h2 className="text-sm font-semibold text-slate-700">Stocks</h2>
-              <p className="text-xs text-slate-500">Click a stock to view details</p>
+              <h2 className="text-sm font-semibold text-slate-200">Stocks</h2>
+              <p className="text-xs text-slate-400">Click a stock to view details</p>
             </div>
             <div className="flex flex-col gap-2 mt-2">
               {STOCKS.map((s) => (
-                <button
+                <StarBorder
                   key={s.symbol}
-                  onClick={() => {
-                    setSelected(s.symbol);
-                    setManualRisk("");
-                    setAiSummary("");
-                  }}
-                  className={`text-left p-3 rounded-xl w-full transition-shadow flex items-center justify-between ${
-                    selected === s.symbol ? "shadow-lg bg-gradient-to-r from-indigo-50 to-white" : "hover:bg-slate-50"
-                  }`}
+                  as="div"
+                  color="#8b5cf6"
+                  speed="3s"
+                  className="rounded-xl"
                 >
-                  <div>
-                    <div className="font-semibold">{s.name}</div>
-                    <div className="text-xs text-slate-500">{s.symbol}</div>
-                  </div>
-                  <div className="text-xs text-slate-400">›</div>
-                </button>
+                  <ClickSpark
+                    sparkColor="#8b5cf6"
+                    sparkCount={12}
+                    sparkRadius={25}
+                    duration={600}
+                  >
+                    <button
+                      onClick={() => {
+                        setSelected(s.symbol);
+                        setManualRisk("");
+                        setAiSummary("");
+                      }}
+                      className={`text-left p-3 rounded-xl w-full transition-all flex items-center justify-between ${
+                        selected === s.symbol ? "shadow-lg bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border border-indigo-500/50" : "hover:bg-slate-800/50 border border-transparent"
+                      }`}
+                    >
+                      <div>
+                        <div className="font-semibold text-white">{s.name}</div>
+                        <div className="text-xs text-slate-400">{s.symbol}</div>
+                      </div>
+                      <div className="text-xs text-slate-500">›</div>
+                    </button>
+                  </ClickSpark>
+                </StarBorder>
               ))}
             </div>
 
-            <div className="mt-auto text-xs text-slate-500">
-              Data source: backend scrapes Yahoo Finance. Frontend expects an endpoint at <code>/api/stock</code>.
+            <div className="mt-auto text-xs text-slate-400">
+              Data source: backend scrapes Yahoo Finance. Frontend expects an endpoint at <code className="text-slate-300">/api/stock</code>.
             </div>
-          </aside>
+          </StarBorder>
 
           {/* Main content */}
           <main className="md:col-span-3">
-            <div className="bg-white rounded-2xl shadow p-6">
+            <StarBorder
+              as="div"
+              className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6"
+              color="#3b82f6"
+              speed="12s"
+            >
               {/* Header row: title, price, sparkline */}
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-4">
-                    <div className="text-lg font-bold">{selected}</div>
-                    <div className="text-sm text-slate-500">{data?.shortName}</div>
+                    <div className="text-lg font-bold text-white">{selected}</div>
+                    <div className="text-sm text-slate-400">{data?.shortName}</div>
                   </div>
                   <div className="mt-2 text-3xl font-extrabold">
                     {loading ? (
                       <span className="text-slate-400">Loading…</span>
                     ) : error ? (
-                      <span className="text-red-500">Error</span>
+                      <span className="text-red-400">Error</span>
                     ) : (
                       <>
-                        <span>${data?.price?.toFixed(2) ?? "—"}</span>
-                        <span className={`ml-3 text-sm ${data && data.changePercent >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        <span className="text-white">${data?.price?.toFixed(2) ?? "—"}</span>
+                        <span className={`ml-3 text-sm ${data && data.changePercent >= 0 ? "text-green-400" : "text-red-400"}`}>
                           {data && data.changePercent != null ? `${data.changePercent >= 0 ? "+" : ""}${data.changePercent.toFixed(2)}%` : ""}
                         </span>
                       </>
@@ -220,100 +256,126 @@ export default function StockRiskDashboard() {
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="flex items-center justify-center h-full text-sm text-slate-400">No chart data</div>
+                    <div className="flex items-center justify-center h-full text-sm text-slate-500">No chart data</div>
                   )}
                 </div>
               </div>
 
               {/* Risk card and controls */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1 bg-gradient-to-br from-white to-indigo-50 rounded-xl p-4 flex flex-col gap-4">
+                <StarBorder
+                  as="div"
+                  className="md:col-span-1 bg-gradient-to-br from-slate-800/50 to-indigo-900/30 backdrop-blur border border-slate-700/50 rounded-xl p-4 flex flex-col gap-4"
+                  color="#f59e0b"
+                  speed="4s"
+                >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-slate-600">Risk Score</div>
-                      <div className="text-2xl font-bold mt-1">{displayRisk() ? displayRisk().score : "—"}</div>
+                      <div className="text-sm text-slate-300">Risk Score</div>
+                      <div className="text-2xl font-bold mt-1 text-white">{displayRisk() ? displayRisk().score : "—"}</div>
                     </div>
                     <div className={`px-3 py-1 rounded-full ${gradeColor(displayRisk()?.grade)}`}>{displayRisk()?.grade ?? "Not graded"}</div>
                   </div>
 
-                  <div className="text-xs text-slate-500">This is the main focal point. You will supply the score from your backend or type it below manually.</div>
+                  <div className="text-xs text-slate-400">This is the main focal point. You will supply the score from your backend or type it below manually.</div>
 
                   <div className="flex gap-2">
                     <input
                       value={manualRisk}
                       onChange={(e) => setManualRisk(e.target.value)}
                       placeholder="Enter risk score (0-100)"
-                      className="flex-1 rounded-lg border px-3 py-2 text-sm"
+                      className="flex-1 rounded-lg border border-slate-600 bg-slate-800/50 text-white px-3 py-2 text-sm placeholder-slate-400"
                       type="number"
                       min={0}
                       max={100}
                     />
-                    <button
-                      onClick={() => {
-                        // If user clears manual risk, we keep backend value
-                        if (manualRisk === "") return;
-                        // no-op — the UI will reflect manualRisk; you can optionally POST this to your backend
-                      }}
-                      className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm"
+                    <ClickSpark
+                      sparkColor="#3b82f6"
+                      sparkCount={8}
+                      sparkRadius={20}
+                      duration={400}
                     >
-                      Apply
-                    </button>
+                      <button
+                        onClick={() => {
+                          // If user clears manual risk, we keep backend value
+                          if (manualRisk === "") return;
+                          // no-op — the UI will reflect manualRisk; you can optionally POST this to your backend
+                        }}
+                        className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm"
+                      >
+                        Apply
+                      </button>
+                    </ClickSpark>
                   </div>
-                </div>
+                </StarBorder>
 
                 {/* Key stats */}
                 <div className="md:col-span-2 grid grid-cols-2 gap-4">
-                  <Stat title="Market Cap" value={prettyNumber(data?.marketCap)} />
-                  <Stat title="P/E Ratio" value={data?.peRatio ?? "—"} />
-                  <Stat title="Beta" value={data?.beta ?? "—"} />
-                  <Stat title="Dividend Yield" value={data?.dividendYield ? (data.dividendYield * 100).toFixed(2) + "%" : "—"} />
-                  <Stat title="52-week range" value={data ? `${data.week52Low ?? "—"} - ${data.week52High ?? "—"}` : "—"} />
-                  <Stat title="Volume / Avg" value={data ? `${prettyNumber(data.volume)} / ${prettyNumber(data.avgVolume)}` : "—"} />
+                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
+                    <Stat title="Market Cap" value={prettyNumber(data?.marketCap)} />
+                  </StarBorder>
+                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
+                    <Stat title="P/E Ratio" value={data?.peRatio ?? "—"} />
+                  </StarBorder>
+                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
+                    <Stat title="Beta" value={data?.beta ?? "—"} />
+                  </StarBorder>
+                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
+                    <Stat title="Dividend Yield" value={data?.dividendYield ? (data.dividendYield * 100).toFixed(2) + "%" : "—"} />
+                  </StarBorder>
+                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
+                    <Stat title="52-week range" value={data ? `${data.week52Low ?? "—"} - ${data.week52High ?? "—"}` : "—"} />
+                  </StarBorder>
+                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
+                    <Stat title="Volume / Avg" value={data ? `${prettyNumber(data.volume)} / ${prettyNumber(data.avgVolume)}` : "—"} />
+                  </StarBorder>
                 </div>
               </div>
 
               {/* AI Summary Section */}
-              <div className="mt-6 border-t pt-4">
+              <div className="mt-6 border-t border-slate-700/50 pt-4">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold">AI Investment Summary</h3>
-                  <button
-                    onClick={generateAISummary}
-                    disabled={summaryLoading || !data}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  >
-                    {summaryLoading ? "Generating..." : "Generate AI Summary"}
-                  </button>
+                  <h3 className="text-sm font-semibold text-slate-200">AI Investment Summary</h3>
+                  {summaryLoading && (
+                    <div className="text-sm text-slate-400">Generating summary...</div>
+                  )}
                 </div>
 
-                {aiSummary && (
-                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                        AI
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm text-slate-700 leading-relaxed">{aiSummary}</div>
-                        <div className="text-xs text-slate-500 mt-2">Generated by Gemini AI</div>
+                <div className="min-h-[120px]">
+                  {aiSummary ? (
+                    <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 backdrop-blur rounded-xl p-4 border border-purple-500/30">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          AI
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm text-slate-200 leading-relaxed">{aiSummary}</div>
+                          <div className="text-xs text-slate-400 mt-2">Generated by Gemini AI</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex items-center justify-center h-[100px] text-slate-500 text-sm">
+                      {summaryLoading ? "Generating AI summary..." : "Select a stock to see AI analysis"}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* More details / explanation */}
-              <div className="mt-6 border-t pt-4">
-                <h3 className="text-sm font-semibold">What these stats mean</h3>
-                <div className="mt-2 text-xs text-slate-600 grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="mt-6 border-t border-slate-700/50 pt-4">
+                <h3 className="text-sm font-semibold text-slate-200">What these stats mean</h3>
+                <div className="mt-2 text-xs text-slate-400 grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
-                    <strong>Market Cap</strong>
+                    <strong className="text-slate-300">Market Cap</strong>
                     <div className="text-xs">Size of the company — gives quick sense of scale.</div>
                   </div>
                   <div>
-                    <strong>P/E Ratio</strong>
+                    <strong className="text-slate-300">P/E Ratio</strong>
                     <div className="text-xs">Price-to-earnings — how expensive the stock is relative to earnings.</div>
                   </div>
                   <div>
-                    <strong>Beta</strong>
+                    <strong className="text-slate-300">Beta</strong>
                     <div className="text-xs">Measures volatility vs market (1 = market-level volatility).</div>
                   </div>
                 </div>
@@ -321,9 +383,9 @@ export default function StockRiskDashboard() {
 
               {/* Loading / error display */}
               {error && (
-                <div className="mt-4 text-sm text-red-600">Error fetching data: {error}</div>
+                <div className="mt-4 text-sm text-red-400">Error fetching data: {error}</div>
               )}
-            </div>
+            </StarBorder>
           </main>
         </div>
       </div>
@@ -333,9 +395,9 @@ export default function StockRiskDashboard() {
 
 function Stat({ title, value }) {
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm flex flex-col">
-      <div className="text-xs text-slate-500">{title}</div>
-      <div className="mt-2 font-semibold">{value}</div>
+    <div className="bg-slate-800/40 backdrop-blur border border-slate-700/30 rounded-xl p-3 shadow-sm flex flex-col">
+      <div className="text-xs text-slate-400">{title}</div>
+      <div className="mt-2 font-semibold text-white">{value}</div>
     </div>
   );
 }

@@ -1,0 +1,105 @@
+.star-border-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+  display: inherit;
+  flex-direction: inherit;
+  align-items: inherit;
+  justify-content: inherit;
+  width: inherit;
+  height: inherit;
+}
+
+.border-gradient-bottom,
+.border-gradient-top {
+  position: absolute;
+  left: -50%;
+  width: 200%;
+  height: 1px;
+  pointer-events: none;
+}
+
+.border-gradient-bottom {
+  bottom: 0;
+  animation-name: moveGradientHorizontal;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-play-state: paused;
+}
+
+.border-gradient-top {
+  top: 0;
+  animation-name: moveGradientHorizontal;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: reverse;
+  animation-play-state: paused;
+}
+
+.star-border-container:hover .border-gradient-bottom,
+.star-border-container:hover .border-gradient-top {
+  animation-play-state: running;
+}
+
+.inner-content {
+  position: relative;
+  z-index: 1;
+  display: inherit;
+  flex-direction: inherit;
+  align-items: inherit;
+  justify-content: inherit;
+  width: 100%;
+  height: 100%;
+  flex: inherit;
+  gap: inherit;
+}
+
+@keyframes moveGradientHorizontal {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Optional: Add vertical borders for full border effect */
+.star-border-container::before,
+.star-border-container::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  width: 1px;
+  height: 200%;
+  pointer-events: none;
+  background: radial-gradient(circle, var(--star-border-color, white), transparent 10%);
+  animation-name: moveGradientVertical;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: inherit;
+  animation-play-state: paused;
+}
+
+.star-border-container::before {
+  left: 0;
+  animation-direction: normal;
+}
+
+.star-border-container::after {
+  right: 0;
+  animation-direction: reverse;
+}
+
+.star-border-container:hover::before,
+.star-border-container:hover::after {
+  animation-play-state: running;
+}
+
+@keyframes moveGradientVertical {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
