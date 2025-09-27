@@ -19,6 +19,7 @@ REM Compile all source files
 gcc -std=c++17 -O2 -Iinclude ^
     src\main.cpp ^
     src\market_data\market_data.cpp ^
+    src\market_data\data_loader.cpp ^
     src\technical_indicators\technical_indicators.cpp ^
     src\vgp\vgp_engine.cpp ^
     src\backtesting\fitness_evaluator.cpp ^
