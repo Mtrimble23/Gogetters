@@ -1,5 +1,5 @@
 VGP Algorithmic Trading Results
-Generated on: Sat Sep 27 03:28:06 2025
+Generated on: Sat Sep 27 04:50:48 2025
 
 ==============================
 
@@ -10,9 +10,9 @@ Configuration:
 - Training data size: 1405
 - Test data size: 352
 
-Best Strategy: Individual[50 genes, fitness=0.9176]
-Training Fitness: 0.917633
+Best Strategy: Individual[50 genes, fitness=0.9144]
+Training Fitness: 0.914448
 
 Evolution Progress:
-Gen 0: Best=0.917633, Avg=0.498484
-Gen 1: Best=0.917633, Avg=0.498484
+Gen 0: Best=0.914448, Avg=0.492305
+Gen 1: Best=0.914448, Avg=0.492305
