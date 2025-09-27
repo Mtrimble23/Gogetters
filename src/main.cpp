@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <ctime>
 #include <random>
+#include <algorithm>
 
 #include "market_data/market_data.h"
 #include "market_data/data_loader.h"
@@ -30,9 +31,9 @@ private:
         size_t training_size = 1000;  // Default values, will be overridden in run_evolution
         size_t test_size = 200;
         
-        // Trading parameters (more realistic)
+        // Trading parameters (realistic retail costs)
         double initial_capital = 10000.0;
-        double transaction_cost = 0.005;  // 0.5% per trade (more realistic)
+        double transaction_cost = 0.003;  // 0.3% per trade (bid-ask spread + small commission)
         bool allow_short_selling = false;  // No short selling for simplicity
         double max_position_size = 0.1;   // Max 10% of portfolio per trade
         
@@ -42,8 +43,11 @@ private:
         double drawdown_weight = 0.2;
         double stability_weight = 0.1;
         
+        // Stock configuration
+        std::string stock_symbol = "AAPL";
+        
         // Output
-        std::string output_file = "results.txt";
+        std::string output_file = "vgp_trading_results.txt";
         bool verbose = true;
         
         unsigned random_seed = 42;
@@ -75,6 +79,19 @@ public:
         }
         
         return true;
+    }
+    
+    void show_usage() {
+        std::cout << "\nUsage: VGP_AlgoTrader.exe [config_file] [stock_symbol]" << std::endl;
+        std::cout << "\nArguments:" << std::endl;
+        std::cout << "  config_file   : Configuration file (default: config.txt)" << std::endl;
+        std::cout << "  stock_symbol  : Stock symbol to analyze (default: AAPL)" << std::endl;
+        std::cout << "\nExamples:" << std::endl;
+        std::cout << "  VGP_AlgoTrader.exe                    # Use default config and AAPL" << std::endl;
+        std::cout << "  VGP_AlgoTrader.exe config.txt TSLA    # Use config.txt and TSLA data" << std::endl;
+        std::cout << "  VGP_AlgoTrader.exe config.txt MSFT    # Use config.txt and MSFT data" << std::endl;
+        std::cout << "\nNote: Stock data files should be placed in data/ folder as {SYMBOL}_data.csv" << std::endl;
+        std::cout << "      (e.g., data/TSLA_data.csv, data/MSFT_data.csv)" << std::endl;
     }
     
     bool load_real_data(const std::string& symbol = "AAPL") {
@@ -215,10 +232,12 @@ public:
         Fitness::StrategySimulator::Config sim_config;
         sim_config.initial_capital = config_.initial_capital;
         sim_config.transaction_cost = config_.transaction_cost;
-        sim_config.slippage = 0.002;  // 0.2% slippage (more realistic)
+        sim_config.slippage = 0.002;  // 0.2% slippage (realistic for liquid stocks)
         sim_config.allow_short_selling = config_.allow_short_selling;
-        sim_config.position_size_pct = 0.10;  // Only use 10% of capital per trade
-        sim_config.signal_threshold = 0.3;    // Higher threshold for trades
+        sim_config.position_size_pct = 0.1;   // Use 10% of capital per trade
+        sim_config.signal_threshold = 0.3;    // Moderate threshold for trades
+        sim_config.min_holding_period = 1;    // Hold positions for at least 1 day
+        sim_config.max_holding_period = 30;   // Close positions after 30 days max
         
         auto fitness_func = Fitness::FitnessFunctionFactory::create_custom(weights, sim_config);
         engine_->set_fitness_function(fitness_func);
@@ -325,7 +344,18 @@ public:
         feature_builder.add_momentum_features();
         feature_builder.add_volume_features();
         
-        VGP::EvaluationContext context = feature_builder.build_context(test_data);
+        // IMPORTANT: To prevent data leakage, we need to build context without future information
+        // For now, we'll use a simple approach of building context from training + a buffer
+        // This is still not perfect but much better than using the entire test set
+        
+        // Create a combined dataset with training data + initial portion of test data for technical indicators
+        MarketData::TimeSeries combined_data = training_data;
+        size_t buffer_size = std::min(size_t(50), test_data.size() / 2); // Use first 50 days or half of test data
+        for (size_t i = 0; i < buffer_size && i < test_data.size(); ++i) {
+            combined_data.add_candle(test_data[i]);
+        }
+        
+        VGP::EvaluationContext context = feature_builder.build_context(combined_data);
         
         Fitness::Portfolio test_portfolio = simulator.simulate(strategy, test_data, context);
         
@@ -359,10 +389,12 @@ public:
         auto time_t = std::chrono::system_clock::to_time_t(now);
         
         file << "VGP Algorithmic Trading Results" << std::endl;
+        file << "Stock Symbol: " << config_.stock_symbol << std::endl;
         file << "Generated on: " << std::ctime(&time_t) << std::endl;
         file << "==============================" << std::endl << std::endl;
         
         file << "Configuration:" << std::endl;
+        file << "- Stock Symbol: " << config_.stock_symbol << std::endl;
         file << "- Population size: " << config_.population_size << std::endl;
         file << "- Chromosome length: " << config_.chromosome_length << std::endl;
         file << "- Max generations: " << config_.max_generations << std::endl;
@@ -392,16 +424,34 @@ public:
         std::cout << "VGP Algorithmic Trader v1.0" << std::endl;
         std::cout << "============================" << std::endl;
         
-        // Load configuration
+        // Show usage if help is requested
+        if (argc > 1 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
+            show_usage();
+            return;
+        }
+        
+        // Parse command line arguments
         std::string config_file = "config.txt";
+        std::string stock_symbol = "AAPL";  // Default to AAPL
+        
         if (argc > 1) {
             config_file = argv[1];
         }
+        if (argc > 2) {
+            stock_symbol = argv[2];
+            // Convert to uppercase for consistency
+            std::transform(stock_symbol.begin(), stock_symbol.end(), stock_symbol.begin(), ::toupper);
+        }
+        
+        // Store stock symbol in config and update output filename
+        config_.stock_symbol = stock_symbol;
+        config_.output_file = stock_symbol + "_vgp_trading_results.txt";
+        
         load_config(config_file);
         
-        // Load data - prioritize real Apple stock data
-        std::cout << "Loading market data..." << std::endl;
-        bool data_loaded = load_real_data("AAPL");
+        // Load data for specified stock symbol
+        std::cout << "Loading market data for " << stock_symbol << "..." << std::endl;
+        bool data_loaded = load_real_data(stock_symbol);
         
         if (!data_loaded) {
             std::cout << "Failed to load real data. Generating sample data..." << std::endl;
