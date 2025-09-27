@@ -35,7 +35,7 @@ class AerospikeRepository:
             
             self.client = aerospike.client(config).connect()
             self.connected = True
-            print(f"SUCCESS: Connected to Aerospike at {self.hosts}")
+            print(f"SUCCESS: Connected to Aerospike at {self.host}:{self.port}")
             return True
             
         except ImportError:
