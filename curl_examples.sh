@@ -2,7 +2,7 @@
 # Risk Level HTTP API Examples
 # Copy and paste these curl commands to test your API
 
-echo "🎯 RISK LEVEL HTTP API EXAMPLES"
+echo "RISK LEVEL HTTP API EXAMPLES"
 echo "================================"
 
 # Example 1: Get risk level for a single stock
@@ -37,7 +37,7 @@ curl -s -X POST http://localhost:8000/risk-level \
     }
   }' | jq '.'
 
-echo -e "\n🚀 All examples completed!"
+echo -e "\nAll examples completed!"
 echo -e "\n📚 More endpoints:"
 echo "   Health Check:      curl http://localhost:8000/health"
 echo "   Test Aerospike:    curl http://localhost:8000/test-aerospike"  
