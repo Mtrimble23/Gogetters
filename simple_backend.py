@@ -146,6 +146,10 @@ async def test_analysis(data: Dict[str, Any]):
 @app.get("/risk-level/{symbol}")
 async def get_risk_level(symbol: str):
     """Get risk level for a specific symbol"""
+    # Validate symbol format
+    if not symbol or len(symbol) > 10 or not symbol.replace('.', '').replace('-', '').isalnum():
+        raise HTTPException(status_code=400, detail="Invalid symbol format")
+    
     try:
         import aerospike
         
@@ -324,6 +328,36 @@ async def calculate_risk_level(data: Dict[str, Any]):
             "success": False,
             "error": str(e)
         }
+
+
+@app.get("/stats")
+async def get_stats():
+    """Get system statistics and features"""
+    return {
+        "service": "VTHacks26 Risk Analysis API",
+        "version": "1.0.0",
+        "status": "operational",
+        "features": [
+            "Real-time risk analysis",
+            "Batch processing",
+            "Aerospike database integration",
+            "Custom risk factors",
+            "Stock sentiment analysis"
+        ],
+        "endpoints": {
+            "health": "/health",
+            "test_aerospike": "/test-aerospike", 
+            "single_analysis": "/risk-level/{symbol}",
+            "batch_analysis": "/risk-level",
+            "statistics": "/stats"
+        },
+        "database": {
+            "type": "Aerospike",
+            "host": "127.0.0.1:3000",
+            "namespace": "test",
+            "set": "finance"
+        }
+    }
 
 
 if __name__ == "__main__":
