@@ -22,12 +22,12 @@ __pycache__/
 Thumbs.db
 
 # Data and cache
-data/
+# data/
 cache/
 sentiment_cache/
 *.pkl
-*.csv
-*.json
+# *.csv
+# *.json
 
 # Model files (if large)
 models/
