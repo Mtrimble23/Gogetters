@@ -515,24 +515,16 @@ void FeatureBuilder::add_price_features() {
     register_feature("typical_price");
     register_feature("median_price");
     register_feature("weighted_close");
-    register_feature("body_size");
-    register_feature("upper_shadow");
     register_feature("lower_shadow");
-    register_feature("is_bullish");
 }
 
 void FeatureBuilder::add_volume_features() {
-    register_feature("volume");
-    register_feature("volume_sma_ratio");
-    register_feature("volume_weighted_price");
+    // No volume features in optimized model
 }
 
 void FeatureBuilder::add_momentum_features() {
-    register_feature("price_return");
     register_feature("log_return");
-    register_feature("price_change");
     register_feature("percent_change");
-    register_feature("price_velocity");
     register_feature("price_acceleration");
 }
 

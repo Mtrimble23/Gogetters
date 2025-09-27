@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Apple Stock Data Fetcher for VGP Trader
-Downloads Apple stock data and formats it for C++ VGP algorithmic trader
+Stock Data Fetcher for VGP Trader
+Downloads stock data for any symbol and formats it for C++ VGP algorithmic trader
 """
 
 import yfinance as yf
@@ -9,10 +9,11 @@ import pandas as pd
 import os
 from datetime import datetime, timedelta
 import sys
+import argparse
 
-def fetch_apple_data(symbol="AAPL", years=7):
+def fetch_stock_data(symbol="AAPL", years=7):
     """
-    Fetch Apple stock data using yfinance API
+    Fetch stock data using yfinance API
     """
     print(f"Fetching {years} years of {symbol} stock data...")
     
@@ -31,6 +32,7 @@ def fetch_apple_data(symbol="AAPL", years=7):
         
         if data.empty:
             print(f"❌ No data found for {symbol}")
+            print(f"💡 Make sure '{symbol}' is a valid stock symbol")
             return None
             
         print(f"✅ Downloaded {len(data)} trading days of data")
@@ -148,15 +150,31 @@ def validate_data_quality(data):
 
 def main():
     """
-    Main function to fetch and prepare Apple stock data
+    Main function to fetch and prepare stock data
     """
-    print("🍎 Apple Stock Data Fetcher for VGP Trader")
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Stock Data Fetcher for VGP Trader')
+    parser.add_argument('symbol', nargs='?', default='AAPL', 
+                       help='Stock symbol to fetch (default: AAPL)')
+    parser.add_argument('--years', type=int, default=7,
+                       help='Number of years of data to fetch (default: 7)')
+    parser.add_argument('--output-dir', default='data',
+                       help='Output directory (default: data)')
+    
+    args = parser.parse_args()
+    
+    # Convert symbol to uppercase
+    symbol = args.symbol.upper()
+    
+    print(f"📈 Stock Data Fetcher for VGP Trader")
     print("=" * 50)
+    print(f"📊 Symbol: {symbol}")
+    print(f"📅 Years: {args.years}")
+    print(f"📁 Output: {args.output_dir}/{symbol}_data.csv")
+    print("")
     
     # Configuration
-    symbol = "AAPL"
-    years = 7
-    output_file = "data/AAPL_data.csv"
+    output_file = f"{args.output_dir}/{symbol}_data.csv"
     
     # Check/install dependencies
     if not install_dependencies():
@@ -169,7 +187,7 @@ def main():
     import pandas as pd
     
     # Fetch data
-    data = fetch_apple_data(symbol, years)
+    data = fetch_stock_data(symbol, args.years)
     if data is None:
         return False
     
@@ -181,14 +199,27 @@ def main():
     if not success:
         return False
     
-    print("\n🎉 Data preparation completed successfully!")
-    print(f"📁 Ready to run: .\\vgp_trader.exe")
+    print(f"\n🎉 Data preparation completed successfully!")
+    print(f"📁 Data saved as: {output_file}")
+    print(f"🚀 Ready to run: .\\build\\VGP_AlgoTrader.exe config.txt {symbol}")
     print(f"📊 The VGP trader will now use real {symbol} stock data")
     
     return True
 
 if __name__ == "__main__":
     try:
+        # Add usage examples if no arguments provided
+        if len(sys.argv) == 1:
+            print("📈 Stock Data Fetcher for VGP Trader")
+            print("=" * 40)
+            print("\nUsage Examples:")
+            print("  python fetch_data.py TSLA              # Fetch Tesla data")
+            print("  python fetch_data.py MSFT              # Fetch Microsoft data") 
+            print("  python fetch_data.py GOOGL --years 5   # Fetch Google data (5 years)")
+            print("  python fetch_data.py --help            # Show all options")
+            print("\nPress Enter to fetch AAPL data, or Ctrl+C to exit...")
+            input()
+        
         success = main()
         if not success:
             sys.exit(1)

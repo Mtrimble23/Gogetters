@@ -345,9 +345,10 @@ void StrategySimulator::process_signals(const std::vector<int>& signals,
             bool should_close = should_close_position(position, current_price, i, signal);
             
             if (should_close) {
-                double exit_price = current_price * (1.0 + config_.slippage);
+                // Apply both slippage AND transaction costs on exit
+                double exit_price = current_price * (1.0 - config_.slippage - config_.transaction_cost);
                 if (position.type == Position::SHORT) {
-                    exit_price = current_price * (1.0 - config_.slippage);
+                    exit_price = current_price * (1.0 + config_.slippage + config_.transaction_cost);
                 }
                 
                 portfolio_.close_position(exit_price, i);
@@ -385,8 +386,8 @@ void StrategySimulator::process_signals(const std::vector<int>& signals,
 }
 
 double StrategySimulator::calculate_position_size(double price, double available_capital) {
-    // More conservative position sizing
-    double max_position_value = available_capital * 0.10; // Max 10% of capital per trade
+    // Use configurable position sizing
+    double max_position_value = available_capital * config_.position_size_pct; 
     double shares = max_position_value / price;
     
     // Don't allow positions smaller than $100 or larger than 50% of capital
