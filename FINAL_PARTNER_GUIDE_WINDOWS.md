@@ -3,7 +3,30 @@
 ## What You're Getting
 
 A production-ready **Financial Risk Analysis API** with:
-- Real Yahoo Finance data (AAPL, AMZN, GOOGL, NVDA, META, TSLA)
+- Real Yahoo Finance data (AAPL, AMZN, GOOGL, NVD### **Example Usage:**
+```bash
+# Get Apple stock analysis
+curl http://localhost:8000/risk-level/AAPL
+
+# Get NVIDIA analysis  
+curl http://localhost:8000/risk-level/NVDA
+
+# Get Tesla analysis
+curl http://localhost:8000/risk-level/TSLA
+```
+
+### **Important: Data Structure**
+The API response has financial data nested under `.data`. To access stock price in your code:
+```javascript
+// JavaScript
+const price = response.data.financial_data.current_price;
+const risk = response.data.risk_analysis.risk_level;
+```
+```python
+# Python
+price = response['data']['financial_data']['current_price']
+risk = response['data']['risk_analysis']['risk_level']
+```LA)
 - CBOE volatility calculations (VIX-style implied volatility)
 - Aerospike database caching (sub-millisecond response times)
 - Comprehensive risk analysis (6-factor risk scoring)
@@ -128,21 +151,23 @@ curl -s "http://localhost:8000/risk-level/AAPL"
 {
   "success": true,
   "symbol": "AAPL",
-  "financial_data": {
-    "current_price": 255.46,
-    "dividend_yield": 0.41,
-    "beta": 1.109,
-    "pe_ratio": 38.76,
-    "cboe_volatility": 28.73,
-    "price_history": { "30 days of data" }
-  },
-  "risk_analysis": {
-    "risk_level": "medium",
-    "risk_score": 0.49,
-    "recommendation": "HOLD"
-  },
   "source": "cache",
-  "response_time": "< 0.001s"
+  "response_time": "< 0.001s",
+  "data": {
+    "financial_data": {
+      "current_price": 255.46,
+      "dividend_yield": 0.41,
+      "beta": 1.109,
+      "pe_ratio": 38.76,
+      "cboe_volatility": 28.73,
+      "price_history": { "30 days of data" }
+    },
+    "risk_analysis": {
+      "risk_level": "medium",
+      "risk_score": 0.49,
+      "recommendation": "HOLD"
+    }
+  }
 }
 ```
 
