@@ -1,0 +1,43 @@
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data and cache
+data/
+cache/
+sentiment_cache/
+*.pkl
+*.csv
+*.json
+
+# Model files (if large)
+models/
+*.bin
+*.safetensors
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+logs/
