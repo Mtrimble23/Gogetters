@@ -7,8 +7,8 @@ Extracts financial metrics for stock analysis
 import yfinance as yf
 import numpy as np
 import pandas as pd
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
+from datetime import datetime, timezone, timedelta
+from typing import Dict, Any, Optional, List, Tuple
 
 
 class YahooFinanceParser:
@@ -16,6 +16,65 @@ class YahooFinanceParser:
     
     def __init__(self):
         self.supported_tickers = ['AAPL', 'AMZN', 'GOOGL', 'NVDA', 'META', 'TSLA']
+    
+    def get_extended_historical_data(self, symbol: str, period: str = "2y") -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Get extended historical price data for risk calculations
+        
+        Args:
+            symbol: Stock symbol
+            period: Period for historical data ("1y", "2y", "5y", "max")
+            
+        Returns:
+            Tuple of (prices, dates) as numpy arrays
+        """
+        try:
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period=period)
+            
+            if hist.empty:
+                return np.array([]), np.array([])
+            
+            prices = hist['Close'].values
+            dates = hist.index.values
+            
+            return prices, dates
+            
+        except Exception as e:
+            print(f"Error fetching extended historical data for {symbol}: {e}")
+            return np.array([]), np.array([])
+    
+    def get_market_data(self, symbol: str = "SPY", period: str = "2y") -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Get market index data for beta calculations
+        
+        Args:
+            symbol: Market index symbol (default: SPY)
+            period: Period for historical data
+            
+        Returns:
+            Tuple of (prices, dates) as numpy arrays
+        """
+        return self.get_extended_historical_data(symbol, period)
+    
+    def get_returns_data(self, symbol: str, period: str = "2y") -> np.ndarray:
+        """
+        Get returns data directly
+        
+        Args:
+            symbol: Stock symbol
+            period: Period for historical data
+            
+        Returns:
+            Array of log returns
+        """
+        prices, _ = self.get_extended_historical_data(symbol, period)
+        if len(prices) < 2:
+            return np.array([])
+        
+        # Calculate log returns
+        returns = np.diff(np.log(prices))
+        return returns
     
     def get_stock_data(self, symbol: str) -> Dict[str, Any]:
         """Get comprehensive stock data for a symbol"""
