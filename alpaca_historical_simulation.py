@@ -29,7 +29,7 @@ except ImportError as e:
 class AlpacaHistoricalSimulation:
     """Simulate live trading from 2025 to now using Alpaca-style execution"""
 
-    def __init__(self, model_path: str = "vgp_neat_AGGRESSIVE_trained.pkl"):
+    def __init__(self, model_path: str = "trained_vgp_neat_model.pkl"):
         self.logger = logging.getLogger(__name__)
 
         # Setup logging

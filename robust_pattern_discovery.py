@@ -14,6 +14,7 @@ from sklearn.metrics import silhouette_score
 import logging
 
 @dataclass
+@dataclass
 class TradingDecision:
     """Records every NEAT trading decision"""
     timestamp: str
@@ -38,10 +39,15 @@ class TradingDecision:
     rsi: float
     bb_position: float
 
-    # Outcome
+    # Outcome (no defaults)
     actual_return_5d: float
     success: bool
     yearly_equivalent_return: float
+
+    # Portfolio State (NEW - for cash-aware analysis) - with defaults at the end
+    cash_available: float = 0.0
+    shares_held: int = 0
+    portfolio_value: float = 0.0
 
 @dataclass
 class DiscoveredPattern:

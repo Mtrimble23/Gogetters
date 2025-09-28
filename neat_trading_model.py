@@ -191,15 +191,15 @@ class NEATTradingModel:
         return df
 
     def prepare_features(self, df: pd.DataFrame) -> np.ndarray:
-        """Prepare input features for NEAT network"""
+        """Prepare input features for NEAT network with VGP signals prioritized"""
 
-        # Feature columns for NEAT input
+        # Feature columns for NEAT input - VGP SIGNALS FIRST (NEAT gives more weight to early features)
         feature_cols = [
+            # VGP signals (3) - PRIORITIZED AND SCALED UP
+            'VGP_Signal_1', 'VGP_Signal_2', 'VGP_Signal_3',
+
             # Sentiment features (3)
             'Sentiment_Previous', 'Sentiment_Current', 'Sentiment_Momentum',
-
-            # VGP signals (3)
-            'VGP_Signal_1', 'VGP_Signal_2', 'VGP_Signal_3',
 
             # Market features (4)
             'Price_Change_Pct', 'Volatility', 'Volume_Normalized',
@@ -243,8 +243,12 @@ class NEATTradingModel:
 
         # Clip extreme values and normalize (AFTER cleaning NaN)
         for col in feature_cols:
-            if col not in ['Sentiment_Previous', 'Sentiment_Current', 'Sentiment_Momentum']:
-                # Sentiment already normalized, others need normalization
+            if 'VGP' in col:
+                # VGP signals get EXTRA WEIGHT - scale them up by 2x for more influence
+                features[col] = np.clip(features[col], 0, 1)  # Keep VGP in [0,1] range
+                features[col] = (features[col] - 0.5) * 4.0  # Scale to [-2, 2] for higher influence
+            elif col not in ['Sentiment_Previous', 'Sentiment_Current', 'Sentiment_Momentum']:
+                # Sentiment already normalized, others need standard normalization
                 features[col] = np.clip(features[col], -3, 3)  # Remove extreme outliers
                 features[col] = features[col] / 3.0  # Normalize to [-1, 1]
 
@@ -282,14 +286,19 @@ class NEATTradingModel:
         return targets[valid_mask], valid_mask
 
     def evaluate_genome(self, genome, config) -> float:
-        """Enhanced genome evaluation with pattern discovery tracking"""
+        """Enhanced genome evaluation with portfolio cash tracking and pattern discovery"""
 
         # Create neural network from genome
         net = neat.nn.FeedForwardNetwork.create(genome, config)
 
-        # Track decisions for pattern discovery
+        # Track decisions for pattern discovery AND portfolio state
         fitness_total = 0
         decisions_made = 0
+        
+        # PORTFOLIO TRACKING during training (start with $10,000)
+        portfolio_cash = 10000.0
+        portfolio_shares = 0
+        initial_capital = 10000.0
 
         for i, features in enumerate(self.X_train):
             if i >= len(self.training_data) - 5:  # Need future return data
@@ -324,15 +333,15 @@ class NEATTradingModel:
                 decision=neat_decision,
                 confidence=confidence,
 
-                # VGP features (extracted from features vector)
-                vgp_signal=features[0] if len(features) > 0 else 0.5,  # Placeholder - will be real VGP
-                vgp_strength=abs(features[0] - 0.5) * 2 if len(features) > 0 else 0.5,
-                vgp_direction=1 if features[0] > 0.5 else -1 if len(features) > 0 else 0,
+                # VGP features (NOW FIRST IN FEATURE VECTOR - positions 0,1,2)
+                vgp_signal=features[0] if len(features) > 0 else 0.5,  # VGP_Signal_1 (highest weight)
+                vgp_strength=abs(features[0] - 0.0) if len(features) > 0 else 0.5,  # Strength of VGP signal
+                vgp_direction=1 if features[0] > 0 else -1 if len(features) > 0 else 0,
 
-                # Sentiment features
-                sentiment_prev=features[1] if len(features) > 1 else 0.5,
-                sentiment_current=features[2] if len(features) > 2 else 0.5,
-                sentiment_momentum=features[3] if len(features) > 3 else 0.5,
+                # Sentiment features (positions 3,4,5)
+                sentiment_prev=features[3] if len(features) > 3 else 0.5,
+                sentiment_current=features[4] if len(features) > 4 else 0.5,
+                sentiment_momentum=features[5] if len(features) > 5 else 0.5,
 
                 # Market features
                 price_change=row.get('Price_Change_Pct', 0),
@@ -340,6 +349,11 @@ class NEATTradingModel:
                 volume_ratio=row.get('Volume_Normalized', 1.0),
                 rsi=row.get('rsi_14', 50) / 100.0,
                 bb_position=row.get('bb_position_20', 0.5),
+
+                # Portfolio context (NEW)
+                cash_available=portfolio_cash,
+                shares_held=portfolio_shares,
+                portfolio_value=portfolio_cash + portfolio_shares * current_price,
 
                 # Outcome
                 actual_return_5d=actual_return_5d,
@@ -351,17 +365,49 @@ class NEATTradingModel:
             if self.pattern_discovery is not None:
                 self.pattern_discovery.record_decision(decision)
 
-            # Calculate fitness contribution - REWARD AGGRESSIVE TRADING!
-            if neat_decision == 2 and actual_return_5d > 0.02:  # Good buy (prediction=2)
-                fitness_total += 2.0  # Double reward for successful trades!
-            elif neat_decision == 0 and actual_return_5d < -0.02:  # Good sell
-                fitness_total += 1.5  # Reward successful sells
-            elif neat_decision == 1 and abs(actual_return_5d) < 0.02:  # Good hold
-                fitness_total += 0.3  # Small reward for hold (discourage over-holding)
-            elif neat_decision == 2 and actual_return_5d < -0.02:  # Bad buy
-                fitness_total -= 1.0  # Penalty for bad buys
-            elif neat_decision == 0 and actual_return_5d > 0.02:  # Bad sell (missed opportunity)
-                fitness_total -= 0.8  # Penalty for selling before gains
+            # PORTFOLIO-AWARE FITNESS CALCULATION
+            current_price = row['Close']
+            position_size = portfolio_cash * 0.15  # Use 15% of cash per trade
+            shares_to_buy = int(position_size / current_price) if current_price > 0 else 0
+            
+            if neat_decision == 2:  # BUY signal
+                if portfolio_cash >= current_price and shares_to_buy > 0:  # Can afford to buy
+                    # Execute simulated buy
+                    cost = shares_to_buy * current_price
+                    portfolio_cash -= cost
+                    portfolio_shares += shares_to_buy
+                    
+                    if actual_return_5d > 0.02:  # Good buy
+                        fitness_total += 3.0  # Extra reward for profitable trades with cash management
+                    elif actual_return_5d < -0.02:  # Bad buy
+                        fitness_total -= 1.0  # Penalty for bad buys
+                    else:
+                        fitness_total += 0.5  # Small reward for reasonable buy
+                else:
+                    # PENALTY for trying to buy without sufficient cash
+                    fitness_total -= 5.0  # Strong but not overwhelming penalty for cash-unaware buying
+                    
+            elif neat_decision == 0 and portfolio_shares > 0:  # SELL signal with shares to sell
+                # Execute simulated sell
+                proceeds = portfolio_shares * current_price
+                portfolio_cash += proceeds
+                portfolio_shares = 0
+                
+                if actual_return_5d < -0.02:  # Good sell (avoided losses)
+                    fitness_total += 2.0  # Reward for avoiding losses
+                elif actual_return_5d > 0.02:  # Bad sell (missed gains)
+                    fitness_total -= 1.0  # Penalty for selling too early
+                else:
+                    fitness_total += 0.8  # Reward for reasonable sell
+                    
+            elif neat_decision == 0 and portfolio_shares == 0:  # Sell signal but no shares
+                fitness_total -= 2.0  # Moderate penalty for trying to sell nothing
+                
+            elif neat_decision == 1:  # HOLD signal
+                if abs(actual_return_5d) < 0.02:  # Good hold (no major movement)
+                    fitness_total += 0.3
+                else:
+                    fitness_total += 0.1  # Neutral hold
 
             decisions_made += 1
 
