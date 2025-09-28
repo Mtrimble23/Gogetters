@@ -98,14 +98,45 @@ function TradingPage({ currentPage, switchPage }) {
   const [tradingData, setTradingData] = useState([]);
   const [animationProgress, setAnimationProgress] = useState(0);
   const [currentPortfolioValue, setCurrentPortfolioValue] = useState(10000);
+  const [buyHoldValue, setBuyHoldValue] = useState(10000);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationSpeed] = useState(100); // milliseconds between trades
+  const animationIntervalRef = React.useRef(null);
+  const animationTimeoutRef = React.useRef(null);
 
   // Load stock data for selected symbol
   useEffect(() => {
-    fetchStockData(selectedStock);
-    loadTradingData();
+    // Stop any ongoing animation and timeouts when stock changes
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current);
+      animationIntervalRef.current = null;
+    }
+    if (animationTimeoutRef.current) {
+      clearTimeout(animationTimeoutRef.current);
+      animationTimeoutRef.current = null;
+    }
+
+    setIsAnimating(false);
+    setAnimationProgress(0);
+    setCurrentPortfolioValue(10000);
+    setTradingData([]);
+
+    // Small delay to ensure cleanup is complete
+    setTimeout(() => {
+      fetchStockData(selectedStock);
+      loadTradingData();
+    }, 100);
   }, [selectedStock]);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+        animationIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const fetchStockData = async (symbol) => {
     try {
@@ -122,13 +153,25 @@ function TradingPage({ currentPage, switchPage }) {
 
   const loadTradingData = async () => {
     try {
-      const response = await fetch('/data/trading_decisions_20250928_024735.csv');
+      const csvPath = `/data/${selectedStock}_executed_only.csv`;
+      console.log("Attempting to fetch:", csvPath);
+
+      const response = await fetch(csvPath);
+      console.log("Fetch response:", response.status, response.ok);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch CSV: ${response.status}`);
+      }
+
       const csvText = await response.text();
+      console.log("CSV text received, length:", csvText.length);
 
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
+          console.log("CSV loaded for", selectedStock, "- Raw rows:", results.data.length);
+
           const filteredData = results.data
             .filter(row => row.date && row.signal)
             .map(row => ({
@@ -140,6 +183,7 @@ function TradingPage({ currentPage, switchPage }) {
             }))
             .sort((a, b) => a.date - b.date);
 
+          console.log("Filtered trading data for", selectedStock, ":", filteredData.length, "trades");
           setTradingData(filteredData);
           setAnimationProgress(0);
           setCurrentPortfolioValue(10000);
@@ -150,33 +194,84 @@ function TradingPage({ currentPage, switchPage }) {
     }
   };
 
+  // Set static Buy & Hold values immediately when stock changes
+  useEffect(() => {
+    const buyHoldValues = {
+      'AAPL': 10513,  // +5.13%
+      'AMZN': 9980,   // -0.2%
+      'GOOGL': 13058, // +30.58%
+      'META': 12441,  // +24.41%
+      'NVDA': 12886,  // +28.86%
+      'TSLA': 11611   // +16.11%
+    };
+    setBuyHoldValue(buyHoldValues[selectedStock] || 10000);
+  }, [selectedStock]);
+
   // Start animation when both stock data and trading data are ready
   useEffect(() => {
-    if (tradingData.length > 0 && stockData) {
+    console.log("Animation effect triggered:", {
+      tradingDataLength: tradingData.length,
+      hasStockData: !!stockData,
+      selectedStock: selectedStock,
+      isAnimating: isAnimating
+    });
+
+    // Clear any existing timeout first
+    if (animationTimeoutRef.current) {
+      clearTimeout(animationTimeoutRef.current);
+      animationTimeoutRef.current = null;
+    }
+
+    if (tradingData.length > 0 && stockData && !isAnimating) {
+      console.log("Starting animation for", selectedStock);
       // Wait 2 seconds for chart to load, then start animation
-      setTimeout(() => {
+      animationTimeoutRef.current = setTimeout(() => {
         startAnimation();
       }, 2000);
     }
-  }, [tradingData, stockData]);
+  }, [tradingData, stockData, selectedStock]);
 
   const startAnimation = () => {
+    console.log("startAnimation called, tradingData length:", tradingData.length);
+
+    // Clear any existing interval first
+    if (animationIntervalRef.current) {
+      console.log("Clearing existing interval:", animationIntervalRef.current);
+      clearInterval(animationIntervalRef.current);
+      animationIntervalRef.current = null;
+    }
+
+    if (tradingData.length === 0) {
+      console.log("No trading data available, aborting animation");
+      return;
+    }
+
+    console.log("Setting up animation with", tradingData.length, "trades");
     setIsAnimating(true);
     setAnimationProgress(0);
     setCurrentPortfolioValue(10000);
 
     let currentIndex = 0;
-    const interval = setInterval(() => {
+    animationIntervalRef.current = setInterval(() => {
+      console.log(`Animation step ${currentIndex + 1}/${tradingData.length}`);
+
       if (currentIndex >= tradingData.length) {
+        console.log("Animation complete");
         setIsAnimating(false);
-        clearInterval(interval);
+        clearInterval(animationIntervalRef.current);
+        animationIntervalRef.current = null;
         return;
       }
 
+      const tradeData = tradingData[currentIndex];
+      console.log("Processing trade:", tradeData);
+
       setAnimationProgress(currentIndex + 1);
-      setCurrentPortfolioValue(tradingData[currentIndex].portfolioValue);
+      setCurrentPortfolioValue(tradeData.portfolioValue);
       currentIndex++;
     }, animationSpeed);
+
+    console.log("Animation interval started with ID:", animationIntervalRef.current);
   };
 
   return (
@@ -244,17 +339,29 @@ function TradingPage({ currentPage, switchPage }) {
               </select>
             </div>
 
-            {/* Portfolio Value */}
-            <div className="text-right">
-              <div className="text-sm text-slate-400">Portfolio Value</div>
-              <div className="text-2xl font-bold text-green-400">
-                ${currentPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              {isAnimating && (
-                <div className="text-xs text-blue-400">
-                  Progress: {animationProgress}/{tradingData.length} trades
+            {/* Portfolio Values */}
+            <div className="text-right space-y-3">
+              {/* Trading Portfolio */}
+              <div>
+                <div className="text-sm text-slate-400">Trading Portfolio</div>
+                <div className="text-2xl font-bold text-white">
+                  ${currentPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-              )}
+                <div className={`text-sm font-semibold ${currentPortfolioValue - 10000 >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {currentPortfolioValue - 10000 >= 0 ? '+' : ''}${(currentPortfolioValue - 10000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({currentPortfolioValue - 10000 >= 0 ? '+' : ''}{(((currentPortfolioValue - 10000) / 10000) * 100).toFixed(2)}%)
+                </div>
+              </div>
+
+              {/* Buy & Hold Comparison */}
+              <div>
+                <div className="text-sm text-slate-400">Buy & Hold</div>
+                <div className="text-xl font-bold text-blue-300">
+                  ${buyHoldValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className={`text-sm font-semibold ${buyHoldValue - 10000 >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {buyHoldValue - 10000 >= 0 ? '+' : ''}${(buyHoldValue - 10000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({buyHoldValue - 10000 >= 0 ? '+' : ''}{(((buyHoldValue - 10000) / 10000) * 100).toFixed(2)}%)
+                </div>
+              </div>
             </div>
           </div>
 
