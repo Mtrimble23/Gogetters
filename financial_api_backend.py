@@ -24,6 +24,18 @@ except ImportError as e:
 from services.financial_risk_service import FinancialRiskService
 from repositories.aerospike_repository import AerospikeRepository
 
+# Import news scraper with error handling and logging
+try:
+    from parsers.yahoo_finance_news_scraper import YahooFinanceNewsScraper
+    NEWS_SCRAPER_AVAILABLE = True
+    print("SUCCESS: News scraper imported successfully")
+except ImportError as e:
+    NEWS_SCRAPER_AVAILABLE = False
+    print(f"ERROR: Failed to import news scraper: {e}")
+except Exception as e:
+    NEWS_SCRAPER_AVAILABLE = False
+    print(f"ERROR: Unexpected error importing news scraper: {e}")
+
 # Initialize FastAPI app
 app = FastAPI(
     title="VTHacks26 Financial Risk Analysis API",
@@ -41,8 +53,24 @@ app.add_middleware(
 )
 
 # Initialize services
+print("INIT: Initializing services...")
 financial_service = FinancialRiskService()
+print("SUCCESS: Financial service initialized")
+
 aerospike_repo = AerospikeRepository()
+print("SUCCESS: Aerospike repository initialized")
+
+# Initialize news scraper conditionally
+if NEWS_SCRAPER_AVAILABLE:
+    try:
+        news_scraper = YahooFinanceNewsScraper()
+        print("SUCCESS: News scraper initialized successfully")
+    except Exception as e:
+        print(f"ERROR: Failed to initialize news scraper: {e}")
+        news_scraper = None
+else:
+    print("WARNING: News scraper not available - AI endpoints will be disabled")
+    news_scraper = None
 
 @app.get("/")
 async def root():
@@ -160,6 +188,34 @@ async def analyze_batch_stocks(request_data: Dict[str, Any]):
     
     return batch_result
 
+@app.get("/stock/{symbol}")
+async def get_stock_data(symbol: str):
+    """Get full stock data including financial metrics"""
+    # Validate symbol
+    if not symbol or len(symbol) > 10 or not symbol.replace('.', '').replace('-', '').isalnum():
+        raise HTTPException(status_code=400, detail="Invalid symbol format")
+
+    symbol = symbol.upper()
+
+    try:
+        # Get stock data from Yahoo Finance parser
+        from parsers.yahoo_finance_parser import YahooFinanceParser
+        parser = YahooFinanceParser()
+        stock_data = parser.get_stock_data(symbol)
+
+        if not stock_data or stock_data.get('current_price', 0) == 0:
+            raise HTTPException(status_code=404, detail=f"Stock data not found for {symbol}")
+
+        return {
+            "success": True,
+            "symbol": symbol,
+            "data": stock_data,
+            "source": "yahoo_finance",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching stock data: {str(e)}")
+
 @app.get("/stats")
 async def get_system_stats():
     """Get comprehensive system statistics"""
@@ -212,7 +268,7 @@ async def clear_symbol_cache(symbol: str):
 async def get_cache_status():
     """Get cache status and statistics"""
     cached_symbols = aerospike_repo.get_cached_symbols()
-    
+
     return {
         "cache_enabled": aerospike_repo.is_connected(),
         "cached_symbols": cached_symbols,
@@ -220,36 +276,97 @@ async def get_cache_status():
         "database_status": "connected" if aerospike_repo.is_connected() else "disconnected"
     }
 
+# Conditionally register AI endpoints only if news scraper is available
+if news_scraper is not None:
+    print("REGISTER: AI summary endpoints...")
+
+    @app.get("/ai-summary/{symbol}")
+    async def get_ai_investment_summary(symbol: str):
+        """Get AI-powered investment summary with sentiment analysis"""
+        print(f"REQUEST: AI Summary requested for symbol: {symbol}")
+
+        # Validate symbol
+        if not symbol or len(symbol) > 10 or not symbol.replace('.', '').replace('-', '').isalnum():
+            print(f"ERROR: Invalid symbol format: {symbol}")
+            raise HTTPException(status_code=400, detail="Invalid symbol format")
+
+        symbol = symbol.upper()
+        print(f"SUCCESS: Symbol validated: {symbol}")
+
+        try:
+            print(f"PROCESSING: Generating AI summary for {symbol}...")
+            # Generate AI summary using news scraper
+            start_time = datetime.now()
+            summary_data = news_scraper.generate_ai_summary(symbol)
+            end_time = datetime.now()
+
+            response_time = (end_time - start_time).total_seconds()
+            print(f"SUCCESS: AI summary generated successfully in {response_time:.3f}s")
+
+            return {
+                "success": True,
+                "symbol": symbol,
+                "data": summary_data,
+                "response_time": f"{response_time:.3f}s",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+
+        except Exception as e:
+            print(f"ERROR: Error generating AI summary for {symbol}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error generating AI summary: {str(e)}")
+
+    print("SUCCESS: AI summary endpoint registered")
+else:
+    print("WARNING: AI summary endpoints NOT registered - news scraper unavailable")
+
 # Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    print("🚀 VTHacks26 Financial Risk Analysis API")
+    print("VTHacks26 Financial Risk Analysis API")
     print("=" * 60)
-    print("✅ Real-time Yahoo Finance integration")
-    print("✅ CBOE volatility calculation")
-    print("✅ Aerospike database caching")
-    print("✅ Comprehensive risk analysis")
+    print("Real-time Yahoo Finance integration")
+    print("CBOE volatility calculation")
+    print("Aerospike database caching")
+    print("Comprehensive risk analysis")
     print()
-    print(f"📊 Supported symbols: {', '.join(financial_service.get_supported_symbols())}")
-    print(f"🗄️  Database: {'Connected' if aerospike_repo.is_connected() else 'Disconnected (graceful fallback)'}")
+    print(f"Supported symbols: {', '.join(financial_service.get_supported_symbols())}")
+    print(f"Database: {'Connected' if aerospike_repo.is_connected() else 'Disconnected (graceful fallback)'}")
+    print(f"News Scraper: {'Available' if news_scraper is not None else 'Unavailable'}")
     print()
-    print("📚 API Documentation: http://localhost:8000/docs")
-    print("🔍 Health Check: http://localhost:8000/health")
-    print("📊 System Stats: http://localhost:8000/stats")
-    print("💡 Example: curl http://localhost:8000/risk-level/AAPL")
+    print("Available Endpoints:")
+    print("  Core APIs:")
+    print("    GET /health - Health check")
+    print("    GET /stats - System statistics")
+    print("    GET /risk-level/{symbol} - Risk analysis")
+    print("    GET /stock/{symbol} - Stock data")
+
+    if news_scraper is not None:
+        print("  AI/News APIs:")
+        print("    GET /ai-summary/{symbol} - AI investment summary")
+    else:
+        print("  AI/News APIs: DISABLED (news scraper unavailable)")
+
+    print()
+    print("Quick Links:")
+    print("  Documentation: http://localhost:8000/docs")
+    print("  Health Check: http://localhost:8000/health")
+    print("  Example: curl http://localhost:8000/risk-level/AAPL")
+
+    if news_scraper is not None:
+        print("  AI Summary: curl http://localhost:8000/ai-summary/AAPL")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up on shutdown"""
     aerospike_repo.close()
-    print("👋 VTHacks26 API shutdown complete")
+    print("VTHacks26 API shutdown complete")
 
 if __name__ == "__main__":
-    print("🚀 Starting VTHacks26 Financial Risk Analysis API...")
-    print("📊 API will be available at: http://localhost:8000")
-    print("📚 API Documentation: http://localhost:8000/docs")
-    print("💡 Press Ctrl+C to stop")
+    print("Starting VTHacks26 Financial Risk Analysis API...")
+    print("API will be available at: http://localhost:8000")
+    print("API Documentation: http://localhost:8000/docs")
+    print("Press Ctrl+C to stop")
     
     uvicorn.run(
         app,

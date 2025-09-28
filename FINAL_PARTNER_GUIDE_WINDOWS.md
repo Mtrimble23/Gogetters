@@ -276,6 +276,8 @@ pkill -f financial_api_backend
 docker-compose down
 docker-compose up -d
 nohup python3 financial_api_backend.py > backend.log 2>&1 &
+#/mnt/c/Python313/python.exe financial_api_backend.py
+#python3 financial_api_backend.py
 ./load_all_stocks.sh
 ```
 

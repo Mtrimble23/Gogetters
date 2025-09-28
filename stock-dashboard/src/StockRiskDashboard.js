@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { LineChart, Line, ResponsiveContainer } from "recharts";
 import LiquidEther from "./LiquidEther";
 import ClickSpark from "./ClickSpark";
-import StarBorder from "./StarBorder";
+import StockChart from "./StockChart";
 
 // Single-file React component (Tailwind CSS required in the app)
 // Usage: place this component inside your React app. The frontend expects a backend API endpoint:
@@ -30,7 +29,8 @@ const STOCKS = [
   { symbol: "AMZN", name: "Amazon" },
   { symbol: "GOOGL", name: "Google" },
   { symbol: "META", name: "Meta" },
-  { symbol: "NVDA", name: "NVIDIA" }
+  { symbol: "NVDA", name: "NVIDIA" },
+  { symbol: "TSLA", name: "Tesla" }
 ];
 
 function prettyNumber(n) {
@@ -79,17 +79,45 @@ export default function StockRiskDashboard() {
     setError(null);
     setData(null);
     try {
-      // Frontend assumes backend scrapes Yahoo Finance for you.
-      const res = await fetch(`/api/stock?symbol=${encodeURIComponent(sym)}`);
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const json = await res.json();
-      // normalize historical prices for sparkline
-      if (json.historical && Array.isArray(json.historical)) {
-        json.spark = json.historical.map((p) => ({ value: p.p || p.price }));
-      } else {
-        json.spark = [];
-      }
-      setData(json);
+      // Fetch both stock data and risk analysis from backend
+      const [stockRes, riskRes] = await Promise.all([
+        fetch(`http://localhost:8000/stock/${encodeURIComponent(sym)}`),
+        fetch(`http://localhost:8000/risk-level/${encodeURIComponent(sym)}`)
+      ]);
+
+      if (!stockRes.ok) throw new Error(`Stock API error: ${stockRes.status}`);
+      if (!riskRes.ok) throw new Error(`Risk API error: ${riskRes.status}`);
+
+      const stockResponse = await stockRes.json();
+      const riskResponse = await riskRes.json();
+
+      const stockData = stockResponse.data;
+      const riskData = riskResponse.data;
+
+      // Combine real API data
+      const combinedData = {
+        symbol: sym,
+        shortName: STOCKS.find(s => s.symbol === sym)?.name + " Inc." || sym,
+        price: stockData.current_price,
+        changePercent: stockData.price_change_percent,
+        marketCap: stockData.market_cap,
+        peRatio: stockData.pe_ratio,
+        beta: stockData.beta,
+        week52Low: stockData.fifty_two_week_low,
+        week52High: stockData.fifty_two_week_high,
+        volume: stockData.volume,
+        avgVolume: stockData.avg_volume,
+        dividendYield: stockData.dividend_yield,
+        debtToEquity: stockData.debt_to_equity,
+        cboeVolatility: riskData.financial_data?.cboe_volatility,
+        price_history: stockData.price_history, // Add historical data for chart
+        risk: {
+          score: Math.round((riskData.risk_analysis?.risk_score || 0) * 100),
+          grade: riskData.risk_analysis?.risk_level?.charAt(0).toUpperCase() + riskData.risk_analysis?.risk_level?.slice(1) || "Medium"
+        }
+      };
+
+      setData(combinedData);
     } catch (e) {
       console.error(e);
       setError(e.message || "Failed to fetch");
@@ -117,37 +145,83 @@ export default function StockRiskDashboard() {
 
     setSummaryLoading(true);
     try {
-      const risk = displayRisk();
-      const summaryData = {
-        symbol: data.symbol,
-        price: data.price,
-        changePercent: data.changePercent,
-        marketCap: data.marketCap,
-        peRatio: data.peRatio,
-        beta: data.beta,
-        riskScore: risk?.score,
-        riskGrade: risk?.grade
-      };
+      // Try the new AI summary endpoint first
+      const res = await fetch(`http://localhost:8000/ai-summary/${encodeURIComponent(data.symbol)}`);
 
-      const res = await fetch('/api/stock/summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(summaryData)
-      });
-
-      if (!res.ok) throw new Error(`Summary API error: ${res.status}`);
-      const result = await res.json();
-
-      if (result.success) {
-        setAiSummary(result.summary);
-      } else {
-        throw new Error(result.error || 'Failed to generate summary');
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success) {
+          setAiSummary(result.data.summary);
+          return;
+        }
       }
+
+      // Fallback to generating a summary based on available data
+      const risk = displayRisk();
+      const symbol = data.symbol;
+      const price = data.price;
+      const changePercent = data.changePercent;
+      const peRatio = data.peRatio;
+      const beta = data.beta;
+
+      // Generate intelligent summary based on financial metrics
+      let summary = `${symbol} is currently trading at $${price?.toFixed(2) || 'N/A'}`;
+
+      if (changePercent !== null) {
+        const direction = changePercent >= 0 ? 'up' : 'down';
+        summary += `, ${direction} ${Math.abs(changePercent).toFixed(2)}% today. `;
+      } else {
+        summary += '. ';
+      }
+
+      // Risk assessment
+      if (risk?.grade) {
+        summary += `The stock shows ${risk.grade.toLowerCase()} risk characteristics `;
+        if (risk.score > 70) {
+          summary += `with elevated volatility concerns. `;
+        } else if (risk.score < 30) {
+          summary += `indicating stable fundamentals. `;
+        } else {
+          summary += `suggesting balanced risk-reward potential. `;
+        }
+      }
+
+      // PE ratio analysis
+      if (peRatio && peRatio > 0) {
+        if (peRatio > 30) {
+          summary += `Trading at a premium P/E of ${peRatio.toFixed(1)}x, suggesting high growth expectations. `;
+        } else if (peRatio < 15) {
+          summary += `Attractively valued at ${peRatio.toFixed(1)}x P/E ratio. `;
+        } else {
+          summary += `Reasonably valued at ${peRatio.toFixed(1)}x earnings. `;
+        }
+      }
+
+      // Beta analysis
+      if (beta && beta > 0) {
+        if (beta > 1.2) {
+          summary += `High beta of ${beta.toFixed(2)} indicates above-average volatility relative to the market.`;
+        } else if (beta < 0.8) {
+          summary += `Low beta of ${beta.toFixed(2)} suggests lower volatility than the broader market.`;
+        } else {
+          summary += `Beta of ${beta.toFixed(2)} indicates market-level volatility.`;
+        }
+      }
+
+      // Add investment recommendation based on metrics
+      if (risk?.score && risk.score < 40 && peRatio && peRatio < 25) {
+        summary += ` Overall metrics suggest a potentially attractive investment opportunity.`;
+      } else if (risk?.score && risk.score > 70) {
+        summary += ` Current metrics warrant careful consideration due to elevated risk factors.`;
+      } else {
+        summary += ` Mixed signals suggest a balanced approach to position sizing.`;
+      }
+
+      setAiSummary(summary);
+
     } catch (e) {
-      console.error('Summary generation failed:', e);
-      setAiSummary('Failed to generate AI summary. Please try again.');
+      console.error('AI Summary generation failed:', e);
+      setAiSummary('AI analysis temporarily unavailable. Please check that the backend services are running.');
     } finally {
       setSummaryLoading(false);
     }
@@ -166,25 +240,14 @@ export default function StockRiskDashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Sidebar */}
-          <StarBorder
-            as="aside"
-            className="md:col-span-1 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-4 flex flex-col gap-4"
-            color="#8b5cf6"
-            speed="8s"
-          >
+          <aside className="md:col-span-1 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-4 flex flex-col gap-4 transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-2xl hover:bg-slate-400/5">
             <div>
               <h2 className="text-sm font-semibold text-slate-200">Stocks</h2>
               <p className="text-xs text-slate-400">Click a stock to view details</p>
             </div>
             <div className="flex flex-col gap-2 mt-2">
               {STOCKS.map((s) => (
-                <StarBorder
-                  key={s.symbol}
-                  as="div"
-                  color="#8b5cf6"
-                  speed="3s"
-                  className="rounded-xl"
-                >
+                <div key={s.symbol} className="rounded-xl border border-slate-700/50 transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-lg hover:bg-slate-400/5">
                   <ClickSpark
                     sparkColor="#8b5cf6"
                     sparkCount={12}
@@ -208,23 +271,18 @@ export default function StockRiskDashboard() {
                       <div className="text-xs text-slate-500">›</div>
                     </button>
                   </ClickSpark>
-                </StarBorder>
+                </div>
               ))}
             </div>
 
             <div className="mt-auto text-xs text-slate-400">
               Data source: backend scrapes Yahoo Finance. Frontend expects an endpoint at <code className="text-slate-300">/api/stock</code>.
             </div>
-          </StarBorder>
+          </aside>
 
           {/* Main content */}
           <main className="md:col-span-3">
-            <StarBorder
-              as="div"
-              className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6"
-              color="#3b82f6"
-              speed="12s"
-            >
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-2xl hover:bg-slate-400/5">
               {/* Header row: title, price, sparkline */}
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
@@ -248,27 +306,12 @@ export default function StockRiskDashboard() {
                   </div>
                 </div>
 
-                <div className="w-full md:w-1/3 h-28">
-                  {data && data.spark && data.spark.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={data.spark.map((d) => ({ value: d.value }))}>
-                        <Line type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={2} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-sm text-slate-500">No chart data</div>
-                  )}
-                </div>
               </div>
 
-              {/* Risk card and controls */}
+              {/* Risk card and graph placeholder */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StarBorder
-                  as="div"
-                  className="md:col-span-1 bg-gradient-to-br from-slate-800/50 to-indigo-900/30 backdrop-blur border border-slate-700/50 rounded-xl p-4 flex flex-col gap-4"
-                  color="#f59e0b"
-                  speed="4s"
-                >
+                {/* Risk Score */}
+                <div className="md:col-span-1 bg-gradient-to-br from-slate-800/50 to-indigo-900/30 backdrop-blur border border-slate-700/50 rounded-xl p-4 flex flex-col gap-4 transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-lg hover:bg-slate-400/5" title="Overall risk assessment based on multiple financial factors">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-slate-300">Risk Score</div>
@@ -277,13 +320,13 @@ export default function StockRiskDashboard() {
                     <div className={`px-3 py-1 rounded-full ${gradeColor(displayRisk()?.grade)}`}>{displayRisk()?.grade ?? "Not graded"}</div>
                   </div>
 
-                  <div className="text-xs text-slate-400">This is the main focal point. You will supply the score from your backend or type it below manually.</div>
+                  <div className="text-xs text-slate-400">Real-time risk analysis from backend data.</div>
 
                   <div className="flex gap-2">
                     <input
                       value={manualRisk}
                       onChange={(e) => setManualRisk(e.target.value)}
-                      placeholder="Enter risk score (0-100)"
+                      placeholder="Override risk score (0-100)"
                       className="flex-1 rounded-lg border border-slate-600 bg-slate-800/50 text-white px-3 py-2 text-sm placeholder-slate-400"
                       type="number"
                       min={0}
@@ -297,9 +340,7 @@ export default function StockRiskDashboard() {
                     >
                       <button
                         onClick={() => {
-                          // If user clears manual risk, we keep backend value
                           if (manualRisk === "") return;
-                          // no-op — the UI will reflect manualRisk; you can optionally POST this to your backend
                         }}
                         className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm"
                       >
@@ -307,29 +348,72 @@ export default function StockRiskDashboard() {
                       </button>
                     </ClickSpark>
                   </div>
-                </StarBorder>
-
-                {/* Key stats */}
-                <div className="md:col-span-2 grid grid-cols-2 gap-4">
-                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
-                    <Stat title="Market Cap" value={prettyNumber(data?.marketCap)} />
-                  </StarBorder>
-                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
-                    <Stat title="P/E Ratio" value={data?.peRatio ?? "—"} />
-                  </StarBorder>
-                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
-                    <Stat title="Beta" value={data?.beta ?? "—"} />
-                  </StarBorder>
-                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
-                    <Stat title="Dividend Yield" value={data?.dividendYield ? (data.dividendYield * 100).toFixed(2) + "%" : "—"} />
-                  </StarBorder>
-                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
-                    <Stat title="52-week range" value={data ? `${data.week52Low ?? "—"} - ${data.week52High ?? "—"}` : "—"} />
-                  </StarBorder>
-                  <StarBorder as="div" color="#3b82f6" speed="4s" className="rounded-xl">
-                    <Stat title="Volume / Avg" value={data ? `${prettyNumber(data.volume)} / ${prettyNumber(data.avgVolume)}` : "—"} />
-                  </StarBorder>
                 </div>
+
+                {/* Stock Chart */}
+                <div className="md:col-span-2 bg-gradient-to-br from-slate-800/30 to-purple-900/20 backdrop-blur border border-slate-700/50 rounded-xl p-6 transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-lg hover:bg-slate-400/5">
+                  {loading ? (
+                    <div className="flex items-center justify-center h-full text-slate-400">
+                      <div className="text-center">
+                        <div className="text-sm">Loading chart...</div>
+                      </div>
+                    </div>
+                  ) : error ? (
+                    <div className="flex items-center justify-center h-full text-red-400">
+                      <div className="text-center">
+                        <div className="text-sm">Chart unavailable</div>
+                        <div className="text-xs mt-1">{error}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <StockChart data={data} symbol={selected} />
+                  )}
+                </div>
+              </div>
+
+              {/* Financial Metrics Grid */}
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <StatBox
+                  title="% Yield"
+                  value={data?.dividendYield ? (data.dividendYield).toFixed(2) + "%" : "—"}
+                  tooltip="Dividend yield - annual dividends as a percentage of stock price"
+                />
+                <StatBox
+                  title="Beta"
+                  value={data?.beta ? data.beta.toFixed(3) : "—"}
+                  tooltip="Beta - measures stock volatility relative to the market (1.0 = market volatility)"
+                />
+                <StatBox
+                  title="52 Week Range"
+                  value={data ? `$${data.week52Low?.toFixed(2) ?? "—"} - $${data.week52High?.toFixed(2) ?? "—"}` : "—"}
+                  tooltip="52-week high and low prices - shows the stock's trading range over the past year"
+                />
+                <StatBox
+                  title="P/E Ratio"
+                  value={data?.peRatio ? data.peRatio.toFixed(2) : "—"}
+                  tooltip="Price-to-Earnings ratio - how much investors pay per dollar of earnings"
+                />
+                <StatBox
+                  title="CBOE Volatility"
+                  value={data?.cboeVolatility ? data.cboeVolatility.toFixed(2) + "%" : "—"}
+                  tooltip="CBOE-style volatility index - measures expected stock price fluctuations"
+                />
+                <StatBox
+                  title="D/E Ratio"
+                  value={data?.debtToEquity ? data.debtToEquity.toFixed(2) : "—"}
+                  tooltip="Debt-to-Equity ratio - measures financial leverage (debt relative to shareholder equity)"
+                />
+                <StatBox
+                  title="Price per Share"
+                  value={data?.price ? `$${data.price.toFixed(2)}` : "—"}
+                  tooltip="Current stock price per share"
+                />
+                <StatBox
+                  title="Price Change Today"
+                  value={data?.changePercent != null ? `${data.changePercent >= 0 ? "+" : ""}${data.changePercent.toFixed(2)}%` : "—"}
+                  valueColor={data?.changePercent != null ? (data.changePercent >= 0 ? "text-green-400" : "text-red-400") : "text-white"}
+                  tooltip="Percentage change in stock price from previous trading day"
+                />
               </div>
 
               {/* AI Summary Section */}
@@ -337,7 +421,7 @@ export default function StockRiskDashboard() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-slate-200">AI Investment Summary</h3>
                   {summaryLoading && (
-                    <div className="text-sm text-slate-400">Generating summary...</div>
+                    <div className="text-sm text-slate-400">Analyzing news sentiment...</div>
                   )}
                 </div>
 
@@ -350,42 +434,26 @@ export default function StockRiskDashboard() {
                         </div>
                         <div className="flex-1">
                           <div className="text-sm text-slate-200 leading-relaxed">{aiSummary}</div>
-                          <div className="text-xs text-slate-400 mt-2">Generated by Gemini AI</div>
+                          <div className="text-xs text-slate-400 mt-2">
+                            Powered by Yahoo Finance News + Sentiment Analysis
+                          </div>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-[100px] text-slate-500 text-sm">
-                      {summaryLoading ? "Generating AI summary..." : "Select a stock to see AI analysis"}
+                      {summaryLoading ? "Analyzing news and market sentiment..." : "Select a stock to see AI news analysis"}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* More details / explanation */}
-              <div className="mt-6 border-t border-slate-700/50 pt-4">
-                <h3 className="text-sm font-semibold text-slate-200">What these stats mean</h3>
-                <div className="mt-2 text-xs text-slate-400 grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <div>
-                    <strong className="text-slate-300">Market Cap</strong>
-                    <div className="text-xs">Size of the company — gives quick sense of scale.</div>
-                  </div>
-                  <div>
-                    <strong className="text-slate-300">P/E Ratio</strong>
-                    <div className="text-xs">Price-to-earnings — how expensive the stock is relative to earnings.</div>
-                  </div>
-                  <div>
-                    <strong className="text-slate-300">Beta</strong>
-                    <div className="text-xs">Measures volatility vs market (1 = market-level volatility).</div>
-                  </div>
-                </div>
-              </div>
 
               {/* Loading / error display */}
               {error && (
                 <div className="mt-4 text-sm text-red-400">Error fetching data: {error}</div>
               )}
-            </StarBorder>
+            </div>
           </main>
         </div>
       </div>
@@ -395,9 +463,31 @@ export default function StockRiskDashboard() {
 
 function Stat({ title, value }) {
   return (
-    <div className="bg-slate-800/40 backdrop-blur border border-slate-700/30 rounded-xl p-3 shadow-sm flex flex-col">
+    <div className="bg-slate-800/40 backdrop-blur rounded-xl p-3 shadow-sm flex flex-col h-full">
       <div className="text-xs text-slate-400">{title}</div>
       <div className="mt-2 font-semibold text-white">{value}</div>
+    </div>
+  );
+}
+
+function StatBox({ title, value, tooltip, valueColor = "text-white" }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <div
+      className="relative bg-slate-800/40 backdrop-blur rounded-xl p-4 shadow-sm flex flex-col h-full transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-lg hover:bg-slate-400/5 border border-slate-700/50 cursor-help"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      <div className="text-xs text-slate-400 mb-2">{title}</div>
+      <div className={`text-lg font-semibold ${valueColor}`}>{value}</div>
+
+      {showTooltip && (
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg shadow-lg border border-slate-700 max-w-64 z-50">
+          <div className="text-center">{tooltip}</div>
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900"></div>
+        </div>
+      )}
     </div>
   );
 }

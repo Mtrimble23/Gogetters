@@ -10,8 +10,8 @@ async function takeScreenshot() {
     await page.setViewportSize({ width: 1920, height: 1080 });
 
     // Navigate to your local dashboard
-    console.log('Navigating to http://localhost:3005...');
-    await page.goto('http://localhost:3005', { waitUntil: 'networkidle' });
+    console.log('Navigating to http://localhost:3004...');
+    await page.goto('http://localhost:3004', { waitUntil: 'networkidle' });
 
     // Wait a bit for any animations to load
     await page.waitForTimeout(3000);
