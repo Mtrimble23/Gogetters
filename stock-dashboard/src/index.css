@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 3D Flip Animation for StatBox components */
+.preserve-3d {
+  transform-style: preserve-3d;
+}

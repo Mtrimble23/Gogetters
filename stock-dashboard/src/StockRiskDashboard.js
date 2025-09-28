@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import LiquidEther from "./LiquidEther";
 import ClickSpark from "./ClickSpark";
 import StockChart from "./StockChart";
+import TextType from "./TextType";
+import Papa from "papaparse";
 
 // Single-file React component (Tailwind CSS required in the app)
 // Usage: place this component inside your React app. The frontend expects a backend API endpoint:
@@ -89,6 +91,559 @@ function getRiskTextColor(percentage) {
   return "text-gray-300";
 }
 
+// Trading Algorithm Page Component
+function TradingPage({ currentPage, switchPage }) {
+  const [selectedStock, setSelectedStock] = useState("AAPL");
+  const [stockData, setStockData] = useState(null);
+  const [tradingData, setTradingData] = useState([]);
+  const [animationProgress, setAnimationProgress] = useState(0);
+  const [currentPortfolioValue, setCurrentPortfolioValue] = useState(10000);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationSpeed] = useState(100); // milliseconds between trades
+
+  // Load stock data for selected symbol
+  useEffect(() => {
+    fetchStockData(selectedStock);
+    loadTradingData();
+  }, [selectedStock]);
+
+  const fetchStockData = async (symbol) => {
+    try {
+      // Use the same endpoints as the dashboard for consistency
+      const response = await fetch(`http://localhost:8000/stock/${symbol}`);
+      const result = await response.json();
+      if (result.success) {
+        setStockData(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching stock data:", error);
+    }
+  };
+
+  const loadTradingData = async () => {
+    try {
+      const response = await fetch('/data/trading_decisions_20250928_024735.csv');
+      const csvText = await response.text();
+
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const filteredData = results.data
+            .filter(row => row.date && row.signal)
+            .map(row => ({
+              date: new Date(row.date),
+              signal: row.signal.toUpperCase(),
+              confidence: parseFloat(row.confidence),
+              price: parseFloat(row.price),
+              portfolioValue: parseFloat(row.portfolio_value)
+            }))
+            .sort((a, b) => a.date - b.date);
+
+          setTradingData(filteredData);
+          setAnimationProgress(0);
+          setCurrentPortfolioValue(10000);
+        }
+      });
+    } catch (error) {
+      console.error("Error loading trading data:", error);
+    }
+  };
+
+  // Start animation when both stock data and trading data are ready
+  useEffect(() => {
+    if (tradingData.length > 0 && stockData) {
+      // Wait 2 seconds for chart to load, then start animation
+      setTimeout(() => {
+        startAnimation();
+      }, 2000);
+    }
+  }, [tradingData, stockData]);
+
+  const startAnimation = () => {
+    setIsAnimating(true);
+    setAnimationProgress(0);
+    setCurrentPortfolioValue(10000);
+
+    let currentIndex = 0;
+    const interval = setInterval(() => {
+      if (currentIndex >= tradingData.length) {
+        setIsAnimating(false);
+        clearInterval(interval);
+        return;
+      }
+
+      setAnimationProgress(currentIndex + 1);
+      setCurrentPortfolioValue(tradingData[currentIndex].portfolioValue);
+      currentIndex++;
+    }, animationSpeed);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white relative">
+      <div className="max-w-7xl mx-auto relative z-10 p-6">
+        <header className="flex items-center justify-between mb-8">
+          <div>
+            <TextType
+              text={["Trading Algorithm", "AI Strategy Builder", "Market Automation"]}
+              as="h1"
+              className="text-2xl md:text-3xl font-extrabold text-white"
+              typingSpeed={75}
+              pauseDuration={1500}
+              showCursor={true}
+              cursorCharacter="|"
+              textColors={["#ffffff", "#f59e0b", "#ef4444"]}
+            />
+            <p className="text-sm text-slate-300 mt-2">Advanced algorithmic trading strategies and automation</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Page Toggle */}
+            <div className="flex items-center bg-slate-800/60 backdrop-blur rounded-lg p-1 border border-slate-700/50">
+              <button
+                onClick={() => switchPage("dashboard")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  currentPage === "dashboard"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => switchPage("trading")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  currentPage === "trading"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                }`}
+              >
+                Trading
+              </button>
+            </div>
+            <p className="text-sm text-slate-300">Automated strategies and intelligent market execution</p>
+          </div>
+        </header>
+
+        {/* Main Trading Visualization Container */}
+        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 h-[calc(100vh-160px)]">
+          {/* Top Controls */}
+          <div className="flex items-center justify-between mb-6">
+            {/* Stock Selector */}
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium text-slate-300">Stock:</label>
+              <select
+                value={selectedStock}
+                onChange={(e) => setSelectedStock(e.target.value)}
+                className="bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {STOCKS.map(stock => (
+                  <option key={stock.symbol} value={stock.symbol}>
+                    {stock.symbol} - {stock.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Portfolio Value */}
+            <div className="text-right">
+              <div className="text-sm text-slate-400">Portfolio Value</div>
+              <div className="text-2xl font-bold text-green-400">
+                ${currentPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              {isAnimating && (
+                <div className="text-xs text-blue-400">
+                  Progress: {animationProgress}/{tradingData.length} trades
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Chart Container */}
+          <div className="h-[550px] bg-slate-800/20 rounded-lg p-4 relative">
+            {stockData ? (
+              <TradingChart
+                stockData={stockData}
+                tradingData={tradingData.slice(0, animationProgress)}
+                selectedStock={selectedStock}
+                animationProgress={animationProgress}
+                totalTrades={tradingData.length}
+                isAnimating={isAnimating}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-slate-400">Loading chart data...</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Trading Chart Component
+function TradingChart({ stockData, tradingData, selectedStock, animationProgress, totalTrades, isAnimating }) {
+  const canvasRef = React.useRef(null);
+  const [hoverData, setHoverData] = React.useState(null);
+  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (!stockData || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas size with better padding for axis labels
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    const width = rect.width;
+    const height = rect.height;
+    const padding = { top: 40, right: 40, bottom: 60, left: 80 };
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+
+    // Use the YTD historical data from the API response
+    const ytdHistory = stockData.ytd_history;
+
+    if (!ytdHistory || !ytdHistory.dates || !ytdHistory.prices) {
+      // Draw "No data" message
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Loading historical data...', width / 2, height / 2);
+      return;
+    }
+
+    // Convert to the format we need: {date, price}
+    const historical = ytdHistory.dates.map((date, index) => ({
+      date: date,
+      price: ytdHistory.prices[index]
+    }));
+
+    // Data is already sorted chronologically
+    const sortedHistorical = historical;
+
+    // Get price range from sorted data (format: {date, price})
+    const prices = sortedHistorical.map(h => h.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const priceRange = maxPrice - minPrice;
+
+    // Draw chart area and axes
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    // Draw main axes
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    // Y-axis
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
+    // X-axis
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+
+    // Draw gridlines
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 0.5;
+
+    // Horizontal gridlines (price levels)
+    const numHorizontalLines = 6;
+    for (let i = 1; i < numHorizontalLines; i++) {
+      const y = padding.top + (i / numHorizontalLines) * chartHeight;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right, y);
+      ctx.stroke();
+    }
+
+    // Vertical gridlines (time intervals)
+    const numVerticalLines = 8;
+    for (let i = 1; i < numVerticalLines; i++) {
+      const x = padding.left + (i / numVerticalLines) * chartWidth;
+      ctx.beginPath();
+      ctx.moveTo(x, padding.top);
+      ctx.lineTo(x, height - padding.bottom);
+      ctx.stroke();
+    }
+
+    // Draw price line
+    ctx.strokeStyle = '#60a5fa';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    sortedHistorical.forEach((point, index) => {
+      const price = point.price;
+      const x = padding.left + (index / (sortedHistorical.length - 1)) * chartWidth;
+      const y = height - padding.bottom - ((price - minPrice) / priceRange) * chartHeight;
+
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    ctx.stroke();
+
+    // Draw trading signals
+    tradingData.forEach(trade => {
+      // Find closest historical point
+      const tradeDate = trade.date;
+      let closestIndex = 0;
+      let closestDiff = Math.abs(new Date(sortedHistorical[0].date) - tradeDate);
+
+      sortedHistorical.forEach((point, index) => {
+        const pointDate = new Date(point.date);
+        const diff = Math.abs(pointDate - tradeDate);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closestIndex = index;
+        }
+      });
+
+      if (closestIndex >= 0) {
+        const x = padding.left + (closestIndex / (sortedHistorical.length - 1)) * chartWidth;
+        const price = sortedHistorical[closestIndex].price;
+        const baseY = height - padding.bottom - ((price - minPrice) / priceRange) * chartHeight;
+
+        // Draw candlestick-style trading signal
+        const candleHeight = 30;
+        const candleWidth = 5;
+        const wickWidth = 1;
+
+        if (trade.signal === 'BUY') {
+          // Green candlestick (bullish)
+          ctx.fillStyle = '#22c55e';
+          ctx.strokeStyle = '#16a34a';
+          ctx.lineWidth = 1;
+
+          // Draw wick (thin line extending up)
+          ctx.beginPath();
+          ctx.moveTo(x, baseY - candleHeight - 15);
+          ctx.lineTo(x, baseY - candleHeight);
+          ctx.lineWidth = wickWidth;
+          ctx.stroke();
+
+          // Draw candle body (rectangle)
+          ctx.fillRect(x - candleWidth/2, baseY - candleHeight, candleWidth, candleHeight);
+          ctx.strokeRect(x - candleWidth/2, baseY - candleHeight, candleWidth, candleHeight);
+
+        } else if (trade.signal === 'SELL') {
+          // Red candlestick (bearish)
+          ctx.fillStyle = '#ef4444';
+          ctx.strokeStyle = '#dc2626';
+          ctx.lineWidth = 1;
+
+          // Draw wick (thin line extending down)
+          ctx.beginPath();
+          ctx.moveTo(x, baseY + candleHeight);
+          ctx.lineTo(x, baseY + candleHeight + 15);
+          ctx.lineWidth = wickWidth;
+          ctx.stroke();
+
+          // Draw candle body (rectangle)
+          ctx.fillRect(x - candleWidth/2, baseY, candleWidth, candleHeight);
+          ctx.strokeRect(x - candleWidth/2, baseY, candleWidth, candleHeight);
+        }
+      }
+    });
+
+    // Draw price labels (Y-axis)
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+
+    // Price labels at regular intervals
+    const numPriceLabels = 6;
+    for (let i = 0; i <= numPriceLabels; i++) {
+      const priceValue = minPrice + (priceRange * i / numPriceLabels);
+      const y = height - padding.bottom - ((priceValue - minPrice) / priceRange) * chartHeight;
+      ctx.fillText(`$${priceValue.toFixed(2)}`, padding.left - 8, y);
+    }
+
+    // Draw time labels (X-axis)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const numTimeLabels = 6;
+    for (let i = 0; i <= numTimeLabels; i++) {
+      const dataIndex = Math.floor((sortedHistorical.length - 1) * i / numTimeLabels);
+      if (dataIndex < sortedHistorical.length) {
+        const date = new Date(sortedHistorical[dataIndex].date);
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const x = padding.left + (dataIndex / (sortedHistorical.length - 1)) * chartWidth;
+        ctx.fillText(dateStr, x, height - padding.bottom + 8);
+      }
+    }
+
+    // Draw axis labels
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '12px sans-serif';
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(15, height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Price (USD)', 0, 0);
+    ctx.restore();
+
+    // X-axis label
+    ctx.textAlign = 'center';
+    ctx.fillText('Time', width / 2, height - 15);
+
+    // Draw title
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${selectedStock} Trading Strategy - 1 Year Historical Data`, padding.left, 25);
+
+    // Draw animated timeline progress line
+    if (isAnimating && animationProgress > 0 && totalTrades > 0) {
+      const currentTrade = tradingData[animationProgress - 1];
+      if (currentTrade) {
+        // Find the closest historical point for the current trade
+        const tradeDate = currentTrade.date;
+        let closestIndex = 0;
+        let closestDiff = Math.abs(new Date(sortedHistorical[0].date) - tradeDate);
+
+        sortedHistorical.forEach((point, index) => {
+          const pointDate = new Date(point.date);
+          const diff = Math.abs(pointDate - tradeDate);
+          if (diff < closestDiff) {
+            closestDiff = diff;
+            closestIndex = index;
+          }
+        });
+
+        if (closestIndex >= 0) {
+          const timelineX = padding.left + (closestIndex / (sortedHistorical.length - 1)) * chartWidth;
+
+          // Draw transparent vertical line
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]); // Dashed line
+          ctx.beginPath();
+          ctx.moveTo(timelineX, padding.top);
+          ctx.lineTo(timelineX, height - padding.bottom);
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset line dash
+
+          // Draw small indicator at the bottom
+          ctx.fillStyle = 'rgba(96, 165, 250, 0.8)';
+          ctx.beginPath();
+          ctx.arc(timelineX, height - padding.bottom + 5, 4, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+    }
+
+  }, [stockData, tradingData, selectedStock, animationProgress, totalTrades, isAnimating]);
+
+  // Handle mouse movement for hover detection
+  const handleMouseMove = (event) => {
+    if (!canvasRef.current || !stockData) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    setMousePos({ x, y });
+
+    // Use exact same padding and dimensions as the drawing code
+    const width = rect.width;
+    const height = rect.height;
+    const padding = { top: 40, right: 40, bottom: 60, left: 80 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    let hoveredTrade = null;
+
+    tradingData.forEach(trade => {
+      if (!stockData.ytd_history) return;
+
+      const ytdHistory = stockData.ytd_history;
+      const historical = ytdHistory.dates.map((date, index) => ({
+        date: date,
+        price: ytdHistory.prices[index]
+      }));
+
+      // Find closest historical point (same logic as drawing)
+      const tradeDate = trade.date;
+      let closestIndex = 0;
+      let closestDiff = Math.abs(new Date(historical[0].date) - tradeDate);
+
+      historical.forEach((point, index) => {
+        const pointDate = new Date(point.date);
+        const diff = Math.abs(pointDate - tradeDate);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closestIndex = index;
+        }
+      });
+
+      // Use exact same calculation as drawing code
+      const candleX = padding.left + (closestIndex / (historical.length - 1)) * chartWidth;
+      const candleWidth = 5;
+      const candleHalfWidth = candleWidth / 2;
+
+      // Expand hit area slightly for easier hovering
+      const hitArea = 8;
+
+      // Check if mouse is within candle bounds
+      if (x >= candleX - hitArea && x <= candleX + hitArea) {
+        hoveredTrade = trade;
+      }
+    });
+
+    setHoverData(hoveredTrade);
+  };
+
+  const handleMouseLeave = () => {
+    setHoverData(null);
+  };
+
+  return (
+    <div className="relative w-full h-full">
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full"
+        style={{ width: '100%', height: '100%' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      />
+
+      {/* Hover tooltip */}
+      {hoverData && (
+        <div
+          className="absolute bg-slate-800/40 backdrop-blur-sm border border-slate-600/30 rounded-lg p-3 text-sm text-white shadow-lg pointer-events-none z-10"
+          style={{
+            left: mousePos.x + 10,
+            top: mousePos.y - 80,
+            transform: mousePos.x > 300 ? 'translateX(-100%)' : 'none'
+          }}
+        >
+          <div className="font-semibold mb-1">
+            <span className={hoverData.signal === 'BUY' ? 'text-green-400' : 'text-red-400'}>
+              {hoverData.signal}
+            </span> Signal
+          </div>
+          <div>Date: {hoverData.date.toLocaleDateString()}</div>
+          <div>Price: ${hoverData.price?.toFixed(2)}</div>
+          <div>Confidence: {(hoverData.confidence * 100).toFixed(1)}%</div>
+          <div>Portfolio: ${hoverData.portfolioValue?.toLocaleString()}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StockRiskDashboard() {
   const [selected, setSelected] = useState(STOCKS[0].symbol);
   const [data, setData] = useState(null);
@@ -98,6 +653,23 @@ export default function StockRiskDashboard() {
   const [advancedMetrics, setAdvancedMetrics] = useState({});
   const [aiSummary, setAiSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState("dashboard"); // "dashboard" or "trading"
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Page transition function
+  const switchPage = (newPage) => {
+    if (newPage === currentPage || isTransitioning) return;
+
+    setIsTransitioning(true);
+
+    // Wait for slide out, then change page and slide in
+    setTimeout(() => {
+      setCurrentPage(newPage);
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
+    }, 250);
+  };
 
   useEffect(() => {
     fetchStock(selected);
@@ -307,14 +879,66 @@ export default function StockRiskDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 relative overflow-hidden p-6">
+    <div className="min-h-screen bg-slate-950 relative overflow-hidden">
+      {/* Shared background - stays consistent */}
       <div className="absolute inset-0 z-0">
         <LiquidEther colors={['#1e293b', '#3b82f6', '#8b5cf6']} />
       </div>
-      <div className="max-w-7xl mx-auto relative z-10">
+
+      {/* Page content with slide transition */}
+      <div className="relative z-10 h-full">
+        {currentPage === "trading" ? (
+          <div
+            className={`transition-transform duration-300 ease-out ${
+              isTransitioning ? 'transform translate-x-full' : 'transform translate-x-0'
+            }`}
+          >
+            <TradingPage currentPage={currentPage} switchPage={switchPage} />
+          </div>
+        ) : (
+          <div
+            className={`p-6 transition-transform duration-300 ease-out ${
+              isTransitioning ? 'transform -translate-x-full' : 'transform translate-x-0'
+            }`}
+          >
+            <div className="max-w-7xl mx-auto relative z-10">
         <header className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl md:text-3xl font-extrabold text-white">Stock Risk Dashboard</h1>
-          <p className="text-sm text-slate-300">Quick, simple financial stats for everyday investors</p>
+          <TextType
+            text={["Stock Risk Dashboard", "Real-time Analysis", "AI-Powered Insights"]}
+            as="h1"
+            className="text-2xl md:text-3xl font-extrabold text-white"
+            typingSpeed={75}
+            pauseDuration={1500}
+            showCursor={true}
+            cursorCharacter="|"
+            textColors={["#ffffff", "#60a5fa", "#34d399"]}
+          />
+          <div className="flex items-center gap-4">
+            {/* Page Toggle */}
+            <div className="flex items-center bg-slate-800/60 backdrop-blur rounded-lg p-1 border border-slate-700/50">
+              <button
+                onClick={() => switchPage("dashboard")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  currentPage === "dashboard"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => switchPage("trading")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  currentPage === "trading"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                }`}
+              >
+                Trading
+              </button>
+            </div>
+            <p className="text-sm text-slate-300">Quick, simple financial stats for everyday investors</p>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -440,7 +1064,7 @@ export default function StockRiskDashboard() {
                 <StatBox
                   title="Omega Ratio"
                   value={advancedMetrics[selected]?.omega_ratio ? advancedMetrics[selected].omega_ratio.toFixed(3) : "—"}
-                  tooltip="Omega ratio - measures risk-adjusted returns by comparing gains to losses above/below a threshold"
+                  tooltip="Measures risk-adjusted returns by comparing gains to losses above/below a threshold"
                 />
                 <StatBox
                   title="Beta"
@@ -450,33 +1074,33 @@ export default function StockRiskDashboard() {
                 <StatBox
                   title="52 Week Range"
                   value={data ? `$${data.week52Low?.toFixed(2) ?? "—"} - $${data.week52High?.toFixed(2) ?? "—"}` : "—"}
-                  tooltip="52-week high and low prices - shows the stock's trading range over the past year"
+                  tooltip="Shows the stock's lowest and highest trading range over the past year"
                 />
                 <StatBox
-                  title="P/E Ratio"
-                  value={data?.peRatio ? data.peRatio.toFixed(2) : "—"}
-                  tooltip="Price-to-Earnings ratio - how much investors pay per dollar of earnings"
+                  title="Price/Earnings Ratio"
+                  value={data?.peRatio ? data.peRatio.toFixed(2)  : "—"}
+                  tooltip="Tells how expensive a stock is by comparing its price to the company's yearly profit per share"
                 />
                 <StatBox
                   title="CBOE Volatility"
                   value={data?.cboeVolatility ? data.cboeVolatility.toFixed(2) + "%" : "—"}
-                  tooltip="CBOE-style volatility index - measures expected stock price fluctuations"
+                  tooltip="Measures expected volatility and expected stock price fluctuations"
                 />
                 <StatBox
-                  title="D/E Ratio"
-                  value={data?.debtToEquity ? data.debtToEquity.toFixed(2) : "—"}
-                  tooltip="Debt-to-Equity ratio - measures financial leverage (debt relative to shareholder equity)"
+                  title="Total Debt/Equity"
+                  value={data?.debtToEquity ? data.debtToEquity.toFixed(2) + "%" : "—"}
+                  tooltip="Compares what a company owes to what it owns, showing how much it relies on borrowing"
                 />
                 <StatBox
-                  title="EVT Available"
-                  value={advancedMetrics[selected]?.evt_available ? "Yes" : advancedMetrics[selected]?.evt_available === false ? "No" : "—"}
-                  tooltip="Extreme Value Theory availability - indicates if sufficient extreme data points exist for tail risk analysis"
+                  title="Tail Ratio"
+                  value={advancedMetrics[selected]?.tail_ratio ? advancedMetrics[selected].tail_ratio.toFixed(3) : "—"}
+                  tooltip="Measures the ratio of average gains to average losses in extreme price movements"
                 />
                 <StatBox
                   title="Sortino Ratio"
                   value={advancedMetrics[selected]?.sortino_ratio ? advancedMetrics[selected].sortino_ratio.toFixed(3) : "—"}
-                  valueColor={advancedMetrics[selected]?.sortino_ratio > 1 ? "text-green-400" : advancedMetrics[selected]?.sortino_ratio > 0 ? "text-yellow-400" : "text-red-400"}
-                  tooltip="Sortino ratio - measures risk-adjusted returns using downside deviation instead of total volatility"
+
+                  tooltip="Measures return compared to only the downside risk, focusing on bad volatility instead of all ups and downs"
                 />
               </div>
 
@@ -519,7 +1143,10 @@ export default function StockRiskDashboard() {
               )}
             </div>
           </main>
-        </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -535,23 +1162,56 @@ function Stat({ title, value }) {
 }
 
 function StatBox({ title, value, tooltip, valueColor = "text-white" }) {
-  const [showTooltip, setShowTooltip] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div
-      className="relative bg-slate-800/40 backdrop-blur rounded-xl p-4 shadow-sm flex flex-col h-full transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-lg hover:bg-slate-400/5 border border-slate-700/50 cursor-help"
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
+      className="relative bg-slate-800/40 backdrop-blur rounded-xl p-4 shadow-sm flex flex-col hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-lg hover:bg-slate-400/5 border border-slate-700/50 cursor-pointer will-change-transform"
+      style={{
+        height: isExpanded ? 'auto' : '80px',
+        minHeight: isExpanded ? '128px' : '80px',
+        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+      }}
+      onClick={() => setIsExpanded(!isExpanded)}
     >
-      <div className="text-xs text-slate-400 mb-2">{title}</div>
-      <div className={`text-lg font-semibold ${valueColor}`}>{value}</div>
-
-      {showTooltip && (
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg shadow-lg border border-slate-700 max-w-64 z-50">
-          <div className="text-center">{tooltip}</div>
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900"></div>
+      {/* Main content */}
+      <div className="flex flex-col">
+        <div className="text-xs text-slate-400 mb-2 flex items-center justify-between">
+          {title}
+          <span
+            className="text-slate-500 transition-transform duration-400 ease-out"
+            style={{
+              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+            }}
+          >
+            ▼
+          </span>
         </div>
-      )}
+        <div className={`text-lg font-semibold ${valueColor}`}>{value}</div>
+      </div>
+
+      {/* Expandable description */}
+      <div
+        className="overflow-hidden"
+        style={{
+          maxHeight: isExpanded ? '160px' : '0px',
+          marginTop: isExpanded ? '12px' : '0px',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+      >
+        <div className="border-t border-slate-600/50 pt-3">
+          <div
+            className="text-xs text-slate-300 leading-relaxed will-change-transform"
+            style={{
+              opacity: isExpanded ? 1 : 0,
+              transform: isExpanded ? 'translateY(0px)' : 'translateY(-8px)',
+              transition: 'opacity 0.5s ease-out 0.1s, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.1s'
+            }}
+          >
+            {tooltip}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
