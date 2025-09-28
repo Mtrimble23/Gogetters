@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  aerospike:
+    image: aerospike/aerospike-server:latest
+    container_name: aerospike
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+      - "3002:3002"
+      - "3003:3003"
+    volumes:
+      - aerospike_data:/opt/aerospike/data
+    environment:
+      - NAMESPACE=test
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "asinfo", "-v", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  aerospike_data:
