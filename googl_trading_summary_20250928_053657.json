@@ -1,0 +1,12 @@
+{
+  "total_decisions": 134,
+  "total_trades": 72,
+  "buy_trades": 68,
+  "sell_trades": 4,
+  "avg_confidence": 0.9447725790294939,
+  "signals_count": {
+    "BUY": 131,
+    "SELL": 3,
+    "HOLD": 0
+  }
+}

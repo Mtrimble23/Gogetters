@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  aerospike:
+    image: aerospike/aerospike-server:latest
+    container_name: aerospike
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+      - "3002:3002"
+      - "3003:3003"
+    volumes:
+      - aerospike_data:/opt/aerospike/data
+    environment:
+      - NAMESPACE=test
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "asinfo", "-v", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  financial-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.financial-api
+    container_name: financial-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - AEROSPIKE_HOST=aerospike
+      - AEROSPIKE_PORT=3000
+    depends_on:
+      aerospike:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  aerospike_data:
