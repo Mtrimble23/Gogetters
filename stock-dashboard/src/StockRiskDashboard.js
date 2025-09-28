@@ -190,7 +190,9 @@ export default function StockRiskDashboard() {
         dividendYield: stockData.dividend_yield,
         debtToEquity: stockData.debt_to_equity,
         cboeVolatility: riskData.financial_data?.cboe_volatility,
-        price_history: stockData.price_history, // Add historical data for chart
+        price_history: stockData.price_history, // 30-day data for existing charts
+        ytd_history: riskData.financial_data?.ytd_history, // YTD data for new chart toggle
+        ytd_performance: riskData.financial_data?.ytd_performance, // YTD performance metrics
         risk: {
           score: Math.round((riskData.risk_analysis?.risk_score || 0) * 100),
           grade: riskData.risk_analysis?.risk_level?.charAt(0).toUpperCase() + riskData.risk_analysis?.risk_level?.slice(1) || "Medium"
@@ -375,7 +377,7 @@ export default function StockRiskDashboard() {
                       <>
                         <span className="text-white">${data?.price?.toFixed(2) ?? "—"}</span>
                         <span className={`ml-3 text-sm ${data && data.changePercent >= 0 ? "text-green-400" : "text-red-400"}`}>
-                          {data && data.changePercent != null ? `${data.changePercent >= 0 ? "+" : ""}${data.changePercent.toFixed(2)}%` : ""}
+                          {data && data.changePercent != null ? `${data.changePercent >= 0 ? "+" : ""}${data.changePercent.toFixed(2)}% today` : ""}
                         </span>
                       </>
                     )}

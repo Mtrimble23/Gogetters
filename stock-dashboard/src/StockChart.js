@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LineChart,
   Line,
@@ -10,7 +10,13 @@ import {
 } from 'recharts';
 
 const StockChart = ({ data, symbol }) => {
-  if (!data || !data.price_history || !data.price_history.dates || data.price_history.dates.length === 0) {
+  const [viewMode, setViewMode] = useState('30d'); // '30d' or 'ytd'
+
+  // Check if we have data for both views
+  const has30DayData = data && data.price_history && data.price_history.dates && data.price_history.dates.length > 0;
+  const hasYTDData = data && data.ytd_history && data.ytd_history.dates && data.ytd_history.dates.length > 0;
+
+  if (!has30DayData && !hasYTDData) {
     return (
       <div className="flex items-center justify-center h-full text-slate-400">
         <div className="text-center">
@@ -21,17 +27,44 @@ const StockChart = ({ data, symbol }) => {
     );
   }
 
+  // Determine which data to use
+  const isYTDView = viewMode === 'ytd' && hasYTDData;
+  const currentData = isYTDView ? data.ytd_history : data.price_history;
+  
+  // If selected view doesn't have data, fall back to available data
+  if (!currentData || !currentData.dates || currentData.dates.length === 0) {
+    const fallbackData = has30DayData ? data.price_history : data.ytd_history;
+    if (!fallbackData || !fallbackData.dates || fallbackData.dates.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-slate-400">
+          <div className="text-center">
+            <div className="text-sm">No chart data available</div>
+            <div className="text-xs mt-1">Historical data loading...</div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   // Transform data for Recharts
-  const chartData = data.price_history.dates.map((date, index) => ({
-    date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    price: data.price_history.prices[index],
+  const chartData = currentData.dates.map((date, index) => ({
+    date: new Date(date).toLocaleDateString('en-US', { 
+      month: isYTDView ? 'short' : 'short', 
+      day: 'numeric',
+      ...(isYTDView && currentData.dates.length > 100 ? {} : {})
+    }),
+    price: currentData.prices[index],
     fullDate: date
   }));
 
-  // Calculate price trend (green if up, red if down)
+  // Calculate price trend and period info
   const firstPrice = chartData[0]?.price || 0;
   const lastPrice = chartData[chartData.length - 1]?.price || 0;
   const isPositiveTrend = lastPrice >= firstPrice;
+  const periodChange = ((lastPrice - firstPrice) / firstPrice * 100);
+
+  // Get YTD performance if available
+  const ytdPerformance = data.ytd_performance?.percent_change || 0;
 
   const lineColor = isPositiveTrend ? '#10b981' : '#ef4444'; // green-500 : red-500
   const gradientId = `gradient-${symbol}`;
@@ -56,16 +89,57 @@ const StockChart = ({ data, symbol }) => {
     <div className="w-full h-full">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-200">30-Day Price History</h3>
+          <div className="flex items-center gap-2 mb-1">            
+            {/* Toggle Buttons */}
+            <div className="flex bg-slate-800 rounded-md p-1">
+              <button
+                onClick={() => setViewMode('30d')}
+                disabled={!has30DayData}
+                className={`px-2 py-1 text-xs rounded transition-all ${
+                  viewMode === '30d'
+                    ? 'bg-blue-600 text-white'
+                    : has30DayData 
+                      ? 'text-slate-400 hover:text-slate-200' 
+                      : 'text-slate-600 cursor-not-allowed'
+                }`}
+              >
+                30D
+              </button>
+              <button
+                onClick={() => setViewMode('ytd')}
+                disabled={!hasYTDData}
+                className={`px-2 py-1 text-xs rounded transition-all ${
+                  viewMode === 'ytd'
+                    ? 'bg-blue-600 text-white'
+                    : hasYTDData 
+                      ? 'text-slate-400 hover:text-slate-200' 
+                      : 'text-slate-600 cursor-not-allowed'
+                }`}
+              >
+                YTD
+              </button>
+            </div>
+          </div>
+          
           <div className="text-xs text-slate-400">
             {symbol} • {chartData.length} trading days
+            {isYTDView && data.ytd_performance?.start_date && 
+              ` • Since ${new Date(data.ytd_performance.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+            }
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xs text-slate-400">30-day change</div>
-          <div className={`text-sm font-semibold ${isPositiveTrend ? 'text-green-400' : 'text-red-400'}`}>
-            {isPositiveTrend ? '+' : ''}{((lastPrice - firstPrice) / firstPrice * 100).toFixed(2)}%
+          <div className="text-xs text-slate-400">
+            {isYTDView ? 'YTD change' : '30-day change'}
           </div>
+          <div className={`text-sm font-semibold ${isPositiveTrend ? 'text-green-400' : 'text-red-400'}`}>
+            {isPositiveTrend ? '+' : ''}{(isYTDView && data.ytd_performance ? ytdPerformance : periodChange).toFixed(2)}%
+          </div>
+          {isYTDView && (
+            <div className="text-xs text-slate-500 mt-1">
+              ${data.ytd_performance?.start_price?.toFixed(2)} → ${lastPrice.toFixed(2)}
+            </div>
+          )}
         </div>
       </div>
 

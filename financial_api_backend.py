@@ -418,7 +418,9 @@ else:
 # Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
-    """Initialize services on startup"""
+    """Initialize services and pre-load data on startup"""
+    import asyncio
+    
     print("VTHacks26 Financial Risk Analysis API")
     print("=" * 60)
     print("Real-time Yahoo Finance integration")
@@ -451,6 +453,35 @@ async def startup_event():
 
     if news_scraper is not None:
         print("  AI Summary: curl http://localhost:8000/ai-summary/AAPL")
+
+    # Pre-load stock analysis data for all supported symbols
+    print("\n🚀 STARTUP: Pre-loading stock analysis data...")
+    supported_symbols = financial_service.get_supported_symbols()
+    
+    async def preload_symbol(symbol: str):
+        """Pre-load data for a single symbol"""
+        try:
+            print(f"   Loading {symbol}...")
+            # This will fetch YTD data and cache it in Aerospike
+            result = financial_service.analyze_single_stock(symbol)
+            if result.get('success'):
+                # Store in cache
+                success = aerospike_repo.store_stock_analysis(symbol, result)
+                if success:
+                    print(f"   ✅ {symbol} cached successfully")
+                else:
+                    print(f"   ⚠️  {symbol} analyzed but cache failed")
+            else:
+                print(f"   ❌ {symbol} analysis failed: {result.get('error', 'Unknown error')}")
+        except Exception as e:
+            print(f"   ❌ {symbol} error: {str(e)}")
+    
+    # Pre-load all symbols concurrently
+    tasks = [preload_symbol(symbol) for symbol in supported_symbols]
+    await asyncio.gather(*tasks, return_exceptions=True)
+    
+    print(f"✅ STARTUP: Pre-loaded analysis for {len(supported_symbols)} symbols")
+    print("   All YTD data is now available in cache!")
 
 @app.on_event("shutdown")
 async def shutdown_event():

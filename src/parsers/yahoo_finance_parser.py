@@ -81,7 +81,11 @@ class YahooFinanceParser:
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info
-            hist = ticker.history(period="1y")
+            # Get year-to-date data from January 1st to today
+            from datetime import date
+            start_date = date(2025, 1, 1)
+            end_date = date.today()
+            hist = ticker.history(start=start_date, end=end_date)
             
             # Get current price and change
             current_price = info.get('currentPrice', 0)
@@ -111,11 +115,37 @@ class YahooFinanceParser:
                                 (stock_data['fifty_two_week_high'] - stock_data['fifty_two_week_low']) * 100)
                 stock_data['fifty_two_week_range_position'] = round(range_position, 2)
             
-            # Add historical price data for graph
+            # Add historical price data for graph and YTD performance
             if not hist.empty:
+                # Keep existing 30-day structure for current graphs
                 stock_data['price_history'] = {
                     'dates': hist.index[-30:].strftime('%Y-%m-%d').tolist(),
                     'prices': hist['Close'][-30:].round(2).tolist()
+                }
+                
+                # Add full year-to-date data for new YTD graph
+                full_dates = hist.index.strftime('%Y-%m-%d').tolist()
+                full_prices = hist['Close'].round(2).tolist()
+                
+                stock_data['ytd_history'] = {
+                    'dates': full_dates,  # All dates from Jan 1 to today
+                    'prices': full_prices  # All prices from Jan 1 to today
+                }
+                
+                # Calculate YTD performance
+                ytd_performance = 0
+                if len(full_prices) >= 2:
+                    jan_1_price = full_prices[0]  # First trading day price
+                    current_price_from_hist = full_prices[-1]  # Most recent price
+                    ytd_performance = ((current_price_from_hist - jan_1_price) / jan_1_price) * 100
+                
+                # Add YTD performance metrics
+                stock_data['ytd_performance'] = {
+                    'percent_change': round(ytd_performance, 2),
+                    'start_date': full_dates[0] if full_dates else None,
+                    'start_price': full_prices[0] if full_prices else None,
+                    'current_price_hist': full_prices[-1] if full_prices else None,
+                    'total_trading_days': len(full_prices)
                 }
             
             return stock_data
