@@ -1,0 +1,702 @@
+{
+  "model_metadata": {
+    "model_type": "VGP_Reduced_Features",
+    "num_features": 36,
+    "num_genes": 60,
+    "fitness_score": 1.0824489795918366,
+    "feature_reduction": "36_of_49_original_features",
+    "excluded_features": [
+      "macd_histogram",
+      "gap",
+      "rsi_21",
+      "macd",
+      "ema_50_ratio",
+      "macd_signal",
+      "momentum_10",
+      "volume_ratio",
+      "sma_20_ratio",
+      "stoch_d_14",
+      "rsi_7",
+      "price_range",
+      "sma_200_ratio"
+    ]
+  },
+  "feature_names": [
+    "close",
+    "open",
+    "high",
+    "low",
+    "volume",
+    "price_change",
+    "sma_5",
+    "sma_5_ratio",
+    "sma_10",
+    "sma_10_ratio",
+    "sma_20",
+    "sma_50",
+    "sma_50_ratio",
+    "sma_200",
+    "ema_8",
+    "ema_8_ratio",
+    "ema_12",
+    "ema_12_ratio",
+    "ema_21",
+    "ema_21_ratio",
+    "ema_26",
+    "ema_26_ratio",
+    "ema_50",
+    "rsi_14",
+    "bb_upper_20",
+    "bb_lower_20",
+    "bb_position_20",
+    "bb_upper_10",
+    "bb_lower_10",
+    "bb_position_10",
+    "stoch_k_14",
+    "stoch_k_9",
+    "stoch_d_9",
+    "volume_sma",
+    "momentum_5",
+    "volatility"
+  ],
+  "gene_weights": [
+    {
+      "gene_id": 0,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": -8.471047025205962,
+      "weight": -8.471047025205962
+    },
+    {
+      "gene_id": 1,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": -3.7198248559499403,
+      "weight": -3.7198248559499403
+    },
+    {
+      "gene_id": 2,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 31,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "stoch_k_9"
+    },
+    {
+      "gene_id": 3,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 31,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "stoch_k_9"
+    },
+    {
+      "gene_id": 4,
+      "type": "operation",
+      "operation": "LOG",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 5,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 18,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "ema_21"
+    },
+    {
+      "gene_id": 6,
+      "type": "operation",
+      "operation": "VOLATILITY_BURST",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 7,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 8,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "sma_10"
+    },
+    {
+      "gene_id": 8,
+      "type": "operation",
+      "operation": "POWER",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 9,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 33,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "volume_sma"
+    },
+    {
+      "gene_id": 10,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": 3.30216395536066,
+      "weight": 3.30216395536066
+    },
+    {
+      "gene_id": 11,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 20,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "ema_26"
+    },
+    {
+      "gene_id": 12,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 35,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "volatility"
+    },
+    {
+      "gene_id": 13,
+      "type": "operation",
+      "operation": "SQRT",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 14,
+      "type": "operation",
+      "operation": "ABS",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 15,
+      "type": "operation",
+      "operation": "MEAN_REVERSION",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 16,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": -7.73442363179297,
+      "weight": -7.73442363179297
+    },
+    {
+      "gene_id": 17,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 2,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "high"
+    },
+    {
+      "gene_id": 18,
+      "type": "operation",
+      "operation": "TREND_STRENGTH",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 19,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 27,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "bb_upper_10"
+    },
+    {
+      "gene_id": 20,
+      "type": "operation",
+      "operation": "AND",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 21,
+      "type": "operation",
+      "operation": "LT",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 22,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": 0.4413658068206807,
+      "weight": 0.4413658068206807
+    },
+    {
+      "gene_id": 23,
+      "type": "operation",
+      "operation": "POWER",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 24,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 27,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "bb_upper_10"
+    },
+    {
+      "gene_id": 25,
+      "type": "operation",
+      "operation": "EXP",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 26,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 25,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "bb_lower_20"
+    },
+    {
+      "gene_id": 27,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 20,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "ema_26"
+    },
+    {
+      "gene_id": 28,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": -9.764456678208076,
+      "weight": -9.764456678208076
+    },
+    {
+      "gene_id": 29,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": -9.354137738384507,
+      "weight": -9.354137738384507
+    },
+    {
+      "gene_id": 30,
+      "type": "operation",
+      "operation": "ADD",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 31,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": 9.196248248303956,
+      "weight": 9.196248248303956
+    },
+    {
+      "gene_id": 32,
+      "type": "operation",
+      "operation": "SUB",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 33,
+      "type": "operation",
+      "operation": "EXP",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 34,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 15,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "ema_8_ratio"
+    },
+    {
+      "gene_id": 35,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 13,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "sma_200"
+    },
+    {
+      "gene_id": 36,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 4,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "volume"
+    },
+    {
+      "gene_id": 37,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 32,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "stoch_d_9"
+    },
+    {
+      "gene_id": 38,
+      "type": "operation",
+      "operation": "NOT",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 39,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 32,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "stoch_d_9"
+    },
+    {
+      "gene_id": 40,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 25,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "bb_lower_20"
+    },
+    {
+      "gene_id": 41,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 28,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "bb_lower_10"
+    },
+    {
+      "gene_id": 42,
+      "type": "operation",
+      "operation": "OR",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 43,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 34,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "momentum_5"
+    },
+    {
+      "gene_id": 44,
+      "type": "operation",
+      "operation": "SQRT",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 45,
+      "type": "operation",
+      "operation": "REGIME_DETECT",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 46,
+      "type": "operation",
+      "operation": "MOMENTUM_SHIFT",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 47,
+      "type": "operation",
+      "operation": "DIV",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 48,
+      "type": "operation",
+      "operation": "SUB",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 49,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 4,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "volume"
+    },
+    {
+      "gene_id": 50,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 4,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "volume"
+    },
+    {
+      "gene_id": 51,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 15,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "ema_8_ratio"
+    },
+    {
+      "gene_id": 52,
+      "type": "constant",
+      "operation": null,
+      "feature_index": null,
+      "constant_value": -9.547246593885683,
+      "weight": -9.547246593885683
+    },
+    {
+      "gene_id": 53,
+      "type": "operation",
+      "operation": "SIN",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 54,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 11,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "sma_50"
+    },
+    {
+      "gene_id": 55,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 0,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "close"
+    },
+    {
+      "gene_id": 56,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 23,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "rsi_14"
+    },
+    {
+      "gene_id": 57,
+      "type": "feature",
+      "operation": null,
+      "feature_index": 8,
+      "constant_value": null,
+      "weight": 1.0,
+      "feature_name": "sma_10"
+    },
+    {
+      "gene_id": 58,
+      "type": "operation",
+      "operation": "MIN",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    },
+    {
+      "gene_id": 59,
+      "type": "operation",
+      "operation": "MOMENTUM_SHIFT",
+      "feature_index": null,
+      "constant_value": null,
+      "weight": 1.0
+    }
+  ],
+  "operation_weights": {
+    "LOG": 0.041666666666666664,
+    "VOLATILITY_BURST": 0.041666666666666664,
+    "POWER": 0.08333333333333333,
+    "SQRT": 0.08333333333333333,
+    "ABS": 0.041666666666666664,
+    "MEAN_REVERSION": 0.041666666666666664,
+    "TREND_STRENGTH": 0.041666666666666664,
+    "AND": 0.041666666666666664,
+    "LT": 0.041666666666666664,
+    "EXP": 0.08333333333333333,
+    "ADD": 0.041666666666666664,
+    "SUB": 0.08333333333333333,
+    "NOT": 0.041666666666666664,
+    "OR": 0.041666666666666664,
+    "REGIME_DETECT": 0.041666666666666664,
+    "MOMENTUM_SHIFT": 0.08333333333333333,
+    "DIV": 0.041666666666666664,
+    "SIN": 0.041666666666666664,
+    "MIN": 0.041666666666666664
+  },
+  "feature_importance": {
+    "stoch_k_9": 0.07407407407407407,
+    "ema_21": 0.037037037037037035,
+    "sma_10": 0.07407407407407407,
+    "volume_sma": 0.037037037037037035,
+    "ema_26": 0.07407407407407407,
+    "volatility": 0.037037037037037035,
+    "high": 0.037037037037037035,
+    "bb_upper_10": 0.07407407407407407,
+    "bb_lower_20": 0.07407407407407407,
+    "ema_8_ratio": 0.07407407407407407,
+    "sma_200": 0.037037037037037035,
+    "volume": 0.1111111111111111,
+    "stoch_d_9": 0.07407407407407407,
+    "bb_lower_10": 0.037037037037037035,
+    "momentum_5": 0.037037037037037035,
+    "sma_50": 0.037037037037037035,
+    "close": 0.037037037037037035,
+    "rsi_14": 0.037037037037037035,
+    "open": 0.0,
+    "low": 0.0,
+    "price_change": 0.0,
+    "sma_5": 0.0,
+    "sma_5_ratio": 0.0,
+    "sma_10_ratio": 0.0,
+    "sma_20": 0.0,
+    "sma_50_ratio": 0.0,
+    "ema_8": 0.0,
+    "ema_12": 0.0,
+    "ema_12_ratio": 0.0,
+    "ema_21_ratio": 0.0,
+    "ema_26_ratio": 0.0,
+    "ema_50": 0.0,
+    "bb_upper_20": 0.0,
+    "bb_position_20": 0.0,
+    "bb_position_10": 0.0,
+    "stoch_k_14": 0.0
+  },
+  "dl_ready_weights": {
+    "feature_weights": [
+      0.037037037037037035,
+      0.0,
+      0.037037037037037035,
+      0.0,
+      0.1111111111111111,
+      0.0,
+      0.0,
+      0.0,
+      0.07407407407407407,
+      0.0,
+      0.0,
+      0.037037037037037035,
+      0.0,
+      0.037037037037037035,
+      0.0,
+      0.07407407407407407,
+      0.0,
+      0.0,
+      0.037037037037037035,
+      0.0,
+      0.07407407407407407,
+      0.0,
+      0.0,
+      0.037037037037037035,
+      0.0,
+      0.07407407407407407,
+      0.0,
+      0.07407407407407407,
+      0.037037037037037035,
+      0.0,
+      0.0,
+      0.07407407407407407,
+      0.07407407407407407,
+      0.037037037037037035,
+      0.037037037037037035,
+      0.037037037037037035
+    ],
+    "operation_coefficients": [
+      0.041666666666666664,
+      0.041666666666666664,
+      0.08333333333333333,
+      0.08333333333333333,
+      0.041666666666666664,
+      0.041666666666666664,
+      0.041666666666666664,
+      0.041666666666666664,
+      0.041666666666666664,
+      0.08333333333333333,
+      0.041666666666666664,
+      0.08333333333333333,
+      0.041666666666666664,
+      0.041666666666666664,
+      0.041666666666666664,
+      0.08333333333333333,
+      0.041666666666666664,
+      0.041666666666666664,
+      0.041666666666666664
+    ],
+    "bias_terms": [
+      -8.471047025205962,
+      -3.7198248559499403,
+      3.30216395536066,
+      -7.73442363179297,
+      0.4413658068206807,
+      -9.764456678208076,
+      -9.354137738384507,
+      9.196248248303956,
+      -9.547246593885683
+    ]
+  }
+}

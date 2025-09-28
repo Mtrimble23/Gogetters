@@ -105,13 +105,13 @@ class SentimentAnalyzer:
         return hashlib.md5(text.encode()).hexdigest()
 
     def _normalize_score(self, label: str, score: float) -> float:
-        """Convert sentiment to -1 to +1 scale"""
+        """Map sentiment labels to 0-1 scale for NEAT (0=negative, 0.5=neutral, 1=positive)"""
         if label.lower() in ['positive', 'pos']:
-            return score
+            return 0.5 + (score * 0.5)  # Map to 0.5-1.0 range
         elif label.lower() in ['negative', 'neg']:
-            return -score
+            return 0.5 - (score * 0.5)  # Map to 0.0-0.5 range
         else:  # neutral
-            return 0.0
+            return 0.5
 
     def analyze_single(self, text: str, source: str = "unknown") -> SentimentResult:
         """Analyze sentiment for a single text"""

@@ -22,7 +22,7 @@ __pycache__/
 Thumbs.db
 node_modules/
 # Data and cache
-data/
+# data/
 cache/
 sentiment_cache/
 *.pkl
@@ -37,7 +37,26 @@ models/
 # Environment variables
 .env
 .env.local
-
+node_modules/
 # Logs
 *.log
 logs/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# React build output
+stock-dashboard/build/
+stock-dashboard/dist/
+
+# React dependencies
+stock-dashboard/node_modules/
+stock-dashboard/.env.local
+stock-dashboard/.env.development.local
+stock-dashboard/.env.test.local
+stock-dashboard/.env.production.local
