@@ -27,7 +27,7 @@ cache/
 sentiment_cache/
 *.pkl
 *.csv
-*.json
+#*.json
 
 # Model files (if large)
 models/
