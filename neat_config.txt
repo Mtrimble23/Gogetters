@@ -9,8 +9,8 @@ reset_on_extinction   = False
 
 [DefaultGenome]
 # Network parameters
-num_inputs            = 5
-num_outputs           = 1
+num_inputs            = 10
+num_outputs           = 3
 num_hidden            = 0
 initial_connection    = full
 feed_forward          = True
@@ -31,6 +31,19 @@ weight_min_value      = -30
 weight_mutate_power   = 0.5
 weight_mutate_rate    = 0.8
 weight_replace_rate   = 0.1
+
+# Connection enable parameters
+enabled_default       = True
+enabled_mutate_rate   = 0.01
+
+# Node bias parameters
+bias_init_mean        = 0.0
+bias_init_stdev       = 1.0
+bias_max_value        = 30
+bias_min_value        = -30
+bias_mutate_power     = 0.5
+bias_mutate_rate      = 0.7
+bias_replace_rate     = 0.1
 
 # Node response parameters
 response_init_mean    = 1.0

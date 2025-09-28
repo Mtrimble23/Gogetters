@@ -41,13 +41,19 @@ class SyntheticSentimentGenerator:
         Uses date + symbol as seed for reproducible results
         """
 
-        # Create deterministic seed from date and symbol
+        # Create deterministic seed ONLY from symbol (ticker)
+        # This ensures same ticker always gets same sentiment patterns
+        # but different tickers get different patterns
+        symbol_seed = abs(hash(symbol)) % 10000  # Convert to positive int
         date_obj = datetime.strptime(date, "%Y-%m-%d")
-        date_seed = int(date_obj.strftime("%Y%m%d")) + hash(symbol) % 10000
+        day_offset = int(date_obj.strftime("%j"))  # Day of year (1-366)
 
-        # Set random seed for this specific date+symbol
-        np.random.seed(date_seed)
-        random.seed(date_seed)
+        # Combine symbol hash with day of year for deterministic but varied sentiment
+        final_seed = symbol_seed + day_offset
+
+        # Set random seed for this specific symbol+day combination
+        np.random.seed(final_seed)
+        random.seed(final_seed)
 
         # Determine if it's an "event" day
         event_rate = self.stock_event_rates.get(symbol, 0.15)
