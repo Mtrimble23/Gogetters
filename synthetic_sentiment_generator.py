@@ -44,24 +44,26 @@ class SyntheticSentimentGenerator:
         # Create deterministic seed ONLY from symbol (ticker)
         # This ensures same ticker always gets same sentiment patterns
         # but different tickers get different patterns
-        symbol_seed = abs(hash(symbol)) % 10000  # Convert to positive int
+        symbol_seed = sum(ord(c) for c in symbol) % 10000  # Deterministic conversion
         date_obj = datetime.strptime(date, "%Y-%m-%d")
         day_offset = int(date_obj.strftime("%j"))  # Day of year (1-366)
 
         # Combine symbol hash with day of year for deterministic but varied sentiment
         final_seed = symbol_seed + day_offset
 
-        # Set random seed for this specific symbol+day combination
-        np.random.seed(final_seed)
-        random.seed(final_seed)
+        # Create local random generators with deterministic seed
+        # Don't reset global seeds - use local generators instead
+        local_rng = np.random.RandomState(final_seed)
+        import random as random_module
+        local_random = random_module.Random(final_seed)
 
         # Determine if it's an "event" day
         event_rate = self.stock_event_rates.get(symbol, 0.15)
 
-        if np.random.random() < event_rate:
+        if local_rng.random() < event_rate:
             # Pick a random event type
             event_types = list(self.event_patterns.keys())[:-1]  # Exclude 'normal_day'
-            event = random.choice(event_types)
+            event = local_random.choice(event_types)
         else:
             event = 'normal_day'
 
@@ -69,7 +71,7 @@ class SyntheticSentimentGenerator:
         base_sentiment = self.event_patterns[event].copy()
 
         # Add some realistic noise (±10%)
-        noise = np.random.normal(0, 0.08, 3)
+        noise = local_rng.normal(0, 0.08, 3)
         sentiment = [max(0.0, min(1.0, base + n)) for base, n in zip(base_sentiment, noise)]
 
         return sentiment

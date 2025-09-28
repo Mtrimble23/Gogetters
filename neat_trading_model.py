@@ -25,8 +25,9 @@ class NEATTradingModel:
                                  neat.DefaultSpeciesSet, neat.DefaultStagnation,
                                  config_path)
 
-        # Data components
-        self.sentiment_generator = SyntheticSentimentGenerator()
+        # Data components - use fixed seed for deterministic results
+        self.sentiment_generator = SyntheticSentimentGenerator(seed=42)
+        # Re-enable pattern discovery
         self.pattern_discovery = RobustPatternDiscovery()
         self.training_data = None
         self.validation_data = None
@@ -122,16 +123,20 @@ class NEATTradingModel:
             try:
                 weights_df = pd.read_csv('vgp_model_weights_features.csv')
                 weights = dict(zip(weights_df['feature_name'], weights_df['importance_weight']))
-            except:
-                self.logger.warning("Could not load VGP weights, using strong default signals")
+                self.logger.info(f"Loaded VGP weights: {len(weights)} features")
+            except Exception as e:
+                self.logger.warning(f"Could not load VGP weights: {e}, using strong default signals")
                 weights = {}
 
             # VGP Signal 1: Volume-based signal (highest weight = 0.1111)
+            volume_ma = df['Volume'].rolling(20, min_periods=1).mean()
+            # For single data points, use typical TSLA volume (50M) as baseline
+            baseline_volume = 50000000 if len(df) == 1 else volume_ma
             volume_signal = np.where(
-                df['Volume'] > df['Volume'].rolling(20).mean() * 1.3,  # High volume breakout
+                df['Volume'] > baseline_volume * 1.3,  # High volume breakout
                 0.8,  # Strong BUY
                 np.where(
-                    df['Volume'] < df['Volume'].rolling(20).mean() * 0.7,  # Low volume
+                    df['Volume'] < baseline_volume * 0.7,  # Low volume
                     0.3,  # Weak signal
                     0.5
                 )
@@ -140,9 +145,9 @@ class NEATTradingModel:
 
             # VGP Signal 2: Medium importance indicators combined
             # sma_10 (0.0741), ema_8_ratio (0.0741), ema_26 (0.0741)
-            sma_10 = df['Close'].rolling(10).mean()
-            ema_8 = df['Close'].ewm(span=8).mean()
-            ema_26 = df['Close'].ewm(span=26).mean()
+            sma_10 = df['Close'].rolling(10, min_periods=1).mean()
+            ema_8 = df['Close'].ewm(span=8, min_periods=1).mean()
+            ema_26 = df['Close'].ewm(span=26, min_periods=1).mean()
 
             combined_signal = np.where(
                 (df['Close'] > sma_10) & (ema_8 > ema_26),  # Bullish trend
@@ -157,14 +162,14 @@ class NEATTradingModel:
 
             # VGP Signal 3: Bollinger Bands + Stochastic (medium importance)
             # bb_lower_20 (0.0741), bb_upper_10 (0.0741), stoch_k_9 (0.0741)
-            bb_middle = df['Close'].rolling(20).mean()
-            bb_std = df['Close'].rolling(20).std()
+            bb_middle = df['Close'].rolling(20, min_periods=1).mean()
+            bb_std = df['Close'].rolling(20, min_periods=1).std()
             bb_lower = bb_middle - (bb_std * 2)
             bb_upper = bb_middle + (bb_std * 2)
 
             # Stochastic %K
-            low_14 = df['Low'].rolling(9).min()
-            high_14 = df['High'].rolling(9).max()
+            low_14 = df['Low'].rolling(9, min_periods=1).min()
+            high_14 = df['High'].rolling(9, min_periods=1).max()
             stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
 
             bb_stoch_signal = np.where(
@@ -338,12 +343,13 @@ class NEATTradingModel:
 
                 # Outcome
                 actual_return_5d=actual_return_5d,
-                success=actual_return_5d > self.pattern_discovery.success_threshold,
+                success=actual_return_5d > 0.002 if self.pattern_discovery is None else actual_return_5d > self.pattern_discovery.success_threshold,
                 yearly_equivalent_return=0  # Will be calculated in pattern discovery
             )
 
-            # Record decision for pattern analysis
-            self.pattern_discovery.record_decision(decision)
+            # Record decision for pattern analysis (only during training)
+            if self.pattern_discovery is not None:
+                self.pattern_discovery.record_decision(decision)
 
             # Calculate fitness contribution - REWARD AGGRESSIVE TRADING!
             if neat_decision == 2 and actual_return_5d > 0.02:  # Good buy (prediction=2)
@@ -416,7 +422,8 @@ class NEATTradingModel:
             self.generation += 1
             if self.generation % 5 == 0:  # Show progress every 5 generations
                 self.logger.info(f"📈 Generation {self.generation}/{generations} completed")
-                self.logger.info(f"💾 Recorded {len(self.pattern_discovery.all_decisions)} trading decisions")
+                if self.pattern_discovery is not None:
+                    self.logger.info(f"💾 Recorded {len(self.pattern_discovery.all_decisions)} trading decisions")
 
         # Train for specified generations
         self.logger.info(f"Starting NEAT training for {generations} generations...")
@@ -430,19 +437,23 @@ class NEATTradingModel:
         print("="*60)
 
         # Clear pattern discovery and re-run with ONLY the best genome
-        self.pattern_discovery.all_decisions.clear()
+        if self.pattern_discovery is not None:
+            self.pattern_discovery.all_decisions.clear()
 
         # Re-evaluate ONLY the winning genome to get its decisions
         print("🔍 Extracting patterns from winning genome...")
         self.evaluate_genome(winner, self.config)
 
-        # Now discover patterns from the best model only
-        final_patterns = self.pattern_discovery.discover_patterns_after_generation(self.generation)
-        if final_patterns:
-            print(f"\n🎯 BEST MODEL DISCOVERED {len(final_patterns)} ELITE PATTERNS:")
-            print(self.pattern_discovery.get_pattern_summary())
+        # Now discover patterns from the best model only (if pattern discovery is enabled)
+        if self.pattern_discovery is not None:
+            final_patterns = self.pattern_discovery.discover_patterns_after_generation(self.generation)
+            if final_patterns:
+                print(f"\n🎯 BEST MODEL DISCOVERED {len(final_patterns)} ELITE PATTERNS:")
+                print(self.pattern_discovery.get_pattern_summary())
+            else:
+                print("🔍 Best model patterns are still being refined...")
         else:
-            print("🔍 Best model patterns are still being refined...")
+            print("🔒 Pattern discovery disabled for deterministic evaluation")
 
         self.logger.info("Training completed!")
         return winner

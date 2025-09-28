@@ -11,14 +11,19 @@ from datetime import datetime, timedelta
 from neat_trading_model import NEATTradingModel
 import yfinance as yf
 import logging
+import random
+
+# Set deterministic seeds for reproducible results
+np.random.seed(42)
+random.seed(42)
 
 # Alpaca API for live trading
 try:
     from alpaca_trade_api import REST, TimeFrame
     ALPACA_AVAILABLE = True
-    print("✅ Alpaca API available for live trading!")
+    print("OK Alpaca API available for live trading!")
 except ImportError as e:
-    print(f"❌ Alpaca API error: {e}")
+    print(f"ERROR Alpaca API error: {e}")
     ALPACA_AVAILABLE = False
 
 class AlpacaHistoricalSimulation:
@@ -129,7 +134,7 @@ class AlpacaHistoricalSimulation:
             historical_data = df.iloc[:i+1].copy()
 
             # Make prediction using only data available up to this date
-            prediction_result = self.make_daily_prediction(historical_data)
+            prediction_result = self.make_daily_prediction(historical_data, day_index=i)
 
             signal = prediction_result["signal"]
             confidence = prediction_result["confidence"]
@@ -233,12 +238,11 @@ class AlpacaHistoricalSimulation:
             'daily_decisions': daily_decisions
         }
 
-    def make_daily_prediction(self, historical_data: pd.DataFrame) -> dict:
+    def make_daily_prediction(self, historical_data: pd.DataFrame, day_index: int = 0) -> dict:
         """Make prediction using only historical data up to current date"""
 
-        # Save to temp CSV with unique name to avoid file conflicts
-        import uuid
-        temp_path = f"temp_historical_data_{uuid.uuid4().hex[:8]}.csv"
+        # Use deterministic temp file name based on day index to ensure consistency
+        temp_path = f"temp_historical_data_day_{day_index}.csv"
         # Write CSV with fixed precision to ensure deterministic results
         historical_data.to_csv(temp_path, index=False, float_format='%.10f')
 
