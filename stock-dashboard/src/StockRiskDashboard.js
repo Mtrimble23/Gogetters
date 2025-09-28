@@ -42,17 +42,51 @@ function prettyNumber(n) {
   return n.toString();
 }
 
-function gradeColor(grade) {
-  switch ((grade || "").toLowerCase()) {
-    case "low":
-      return "bg-green-900/30 text-green-300 border border-green-700/50";
-    case "medium":
-      return "bg-yellow-900/30 text-yellow-300 border border-yellow-700/50";
-    case "high":
-      return "bg-red-900/30 text-red-300 border border-red-700/50";
-    default:
-      return "bg-gray-900/30 text-gray-300 border border-gray-700/50";
+function getRiskLabel(percentage) {
+  if (percentage >= 0 && percentage <= 25) return "Low";
+  if (percentage > 25 && percentage <= 45) return "Low-Medium";
+  if (percentage > 45 && percentage <= 65) return "Medium";
+  if (percentage > 65 && percentage <= 80) return "Medium-High";
+  if (percentage > 80) return "High";
+  return "Unknown";
+}
+
+function getRiskGradient(percentage) {
+  if (percentage >= 0 && percentage <= 25) {
+    // Green gradient (low risk)
+    const intensity = percentage / 25;
+    return `linear-gradient(135deg, rgba(34, 197, 94, ${0.2 + intensity * 0.3}) 0%, rgba(21, 128, 61, ${0.3 + intensity * 0.4}) 100%)`;
   }
+  if (percentage > 25 && percentage <= 45) {
+    // Yellow-green gradient (low-medium risk)
+    const intensity = (percentage - 25) / 20;
+    return `linear-gradient(135deg, rgba(132, 204, 22, ${0.2 + intensity * 0.3}) 0%, rgba(101, 163, 13, ${0.3 + intensity * 0.4}) 100%)`;
+  }
+  if (percentage > 45 && percentage <= 65) {
+    // Yellow gradient (medium risk)
+    const intensity = (percentage - 45) / 20;
+    return `linear-gradient(135deg, rgba(234, 179, 8, ${0.2 + intensity * 0.3}) 0%, rgba(161, 98, 7, ${0.3 + intensity * 0.4}) 100%)`;
+  }
+  if (percentage > 65 && percentage <= 80) {
+    // Orange gradient (medium-high risk)
+    const intensity = (percentage - 65) / 15;
+    return `linear-gradient(135deg, rgba(249, 115, 22, ${0.2 + intensity * 0.3}) 0%, rgba(194, 65, 12, ${0.3 + intensity * 0.4}) 100%)`;
+  }
+  if (percentage > 80) {
+    // Red gradient (high risk)
+    const intensity = Math.min((percentage - 80) / 20, 1);
+    return `linear-gradient(135deg, rgba(239, 68, 68, ${0.3 + intensity * 0.4}) 0%, rgba(153, 27, 27, ${0.4 + intensity * 0.5}) 100%)`;
+  }
+  return "linear-gradient(135deg, rgba(107, 114, 128, 0.2) 0%, rgba(75, 85, 99, 0.3) 100%)";
+}
+
+function getRiskTextColor(percentage) {
+  if (percentage >= 0 && percentage <= 25) return "text-green-300";
+  if (percentage > 25 && percentage <= 45) return "text-lime-300";
+  if (percentage > 45 && percentage <= 65) return "text-yellow-300";
+  if (percentage > 65 && percentage <= 80) return "text-orange-300";
+  if (percentage > 80) return "text-red-300";
+  return "text-gray-300";
 }
 
 export default function StockRiskDashboard() {
@@ -60,12 +94,15 @@ export default function StockRiskDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [manualRisk, setManualRisk] = useState("");
+  const [predictions, setPredictions] = useState({});
+  const [advancedMetrics, setAdvancedMetrics] = useState({});
   const [aiSummary, setAiSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
 
   useEffect(() => {
     fetchStock(selected);
+    fetchPredictions();
+    fetchAdvancedMetrics();
   }, [selected]);
 
   useEffect(() => {
@@ -73,6 +110,49 @@ export default function StockRiskDashboard() {
       generateAISummary();
     }
   }, [data]);
+
+  async function fetchPredictions() {
+    try {
+      const predRes = await fetch('http://localhost:8000/predictions');
+      if (predRes.ok) {
+        const predResponse = await predRes.json();
+        if (predResponse.success) {
+          setPredictions(predResponse.data);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch predictions:', e);
+    }
+  }
+
+  async function fetchAdvancedMetrics() {
+    try {
+      // We'll need to create an endpoint for this, but for now try individual calls
+      const promises = STOCKS.map(async (stock) => {
+        try {
+          const response = await fetch(`http://localhost:8000/advanced-metrics/${stock.symbol}`);
+          if (response.ok) {
+            const data = await response.json();
+            return { symbol: stock.symbol, data: data.success ? data.metrics : null };
+          }
+        } catch (e) {
+          console.warn(`Could not fetch advanced metrics for ${stock.symbol}:`, e);
+        }
+        return { symbol: stock.symbol, data: null };
+      });
+
+      const results = await Promise.all(promises);
+      const metricsMap = {};
+      results.forEach(result => {
+        if (result.data) {
+          metricsMap[result.symbol] = result.data;
+        }
+      });
+      setAdvancedMetrics(metricsMap);
+    } catch (e) {
+      console.warn('Could not fetch advanced metrics:', e);
+    }
+  }
 
   async function fetchStock(sym) {
     setLoading(true);
@@ -126,19 +206,16 @@ export default function StockRiskDashboard() {
     }
   }
 
-  const displayRisk = () => {
-    if (manualRisk) return { score: parseFloat(manualRisk), grade: inferGrade(manualRisk) };
-    if (data && data.risk) return data.risk;
+  const getRiskScore = () => {
+    if (predictions && predictions[selected]) {
+      return {
+        score: predictions[selected],
+        percentage: predictions[selected],
+        label: getRiskLabel(predictions[selected])
+      };
+    }
     return null;
   };
-
-  function inferGrade(score) {
-    const s = parseFloat(score);
-    if (Number.isNaN(s)) return "";
-    if (s <= 33) return "Low";
-    if (s <= 66) return "Medium";
-    return "High";
-  }
 
   async function generateAISummary() {
     if (!data) return;
@@ -157,7 +234,7 @@ export default function StockRiskDashboard() {
       }
 
       // Fallback to generating a summary based on available data
-      const risk = displayRisk();
+      const risk = getRiskScore();
       const symbol = data.symbol;
       const price = data.price;
       const changePercent = data.changePercent;
@@ -257,7 +334,6 @@ export default function StockRiskDashboard() {
                     <button
                       onClick={() => {
                         setSelected(s.symbol);
-                        setManualRisk("");
                         setAiSummary("");
                       }}
                       className={`text-left p-3 rounded-xl w-full transition-all flex items-center justify-between ${
@@ -311,42 +387,28 @@ export default function StockRiskDashboard() {
               {/* Risk card and graph placeholder */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Risk Score */}
-                <div className="md:col-span-1 bg-gradient-to-br from-slate-800/50 to-indigo-900/30 backdrop-blur border border-slate-700/50 rounded-xl p-4 flex flex-col gap-4 transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-lg hover:bg-slate-400/5" title="Overall risk assessment based on multiple financial factors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm text-slate-300">Risk Score</div>
-                      <div className="text-2xl font-bold mt-1 text-white">{displayRisk() ? displayRisk().score : "—"}</div>
+                <div
+                  className="md:col-span-1 backdrop-blur border border-slate-700/50 rounded-xl p-6 flex flex-col gap-4 transition-all duration-300 hover:border-slate-400/60 hover:shadow-slate-400/20 hover:shadow-lg"
+                  style={{
+                    background: getRiskScore() ? getRiskGradient(getRiskScore().percentage) : 'linear-gradient(135deg, rgba(107, 114, 128, 0.2) 0%, rgba(75, 85, 99, 0.3) 100%)'
+                  }}
+                  title="AI-powered risk prediction based on market analysis"
+                >
+                  <div className="flex flex-col items-center justify-center text-center flex-1">
+                    <div className="text-sm text-slate-300 mb-3">Risk Score</div>
+                    <div className={`text-6xl font-bold mb-3 ${getRiskScore() ? getRiskTextColor(getRiskScore().percentage) : 'text-white'}`}>
+                      {getRiskScore() ? `${getRiskScore().score.toFixed(1)}%` : "—"}
                     </div>
-                    <div className={`px-3 py-1 rounded-full ${gradeColor(displayRisk()?.grade)}`}>{displayRisk()?.grade ?? "Not graded"}</div>
+                    <div className={`text-xl font-semibold ${getRiskScore() ? getRiskTextColor(getRiskScore().percentage) : 'text-gray-300'}`}>
+                      {getRiskScore() ? getRiskScore().label : "No Data"}
+                    </div>
                   </div>
 
-                  <div className="text-xs text-slate-400">Real-time risk analysis from backend data.</div>
-
-                  <div className="flex gap-2">
-                    <input
-                      value={manualRisk}
-                      onChange={(e) => setManualRisk(e.target.value)}
-                      placeholder="Override risk score (0-100)"
-                      className="flex-1 rounded-lg border border-slate-600 bg-slate-800/50 text-white px-3 py-2 text-sm placeholder-slate-400"
-                      type="number"
-                      min={0}
-                      max={100}
-                    />
-                    <ClickSpark
-                      sparkColor="#3b82f6"
-                      sparkCount={8}
-                      sparkRadius={20}
-                      duration={400}
-                    >
-                      <button
-                        onClick={() => {
-                          if (manualRisk === "") return;
-                        }}
-                        className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm"
-                      >
-                        Apply
-                      </button>
-                    </ClickSpark>
+                  <div className="border-t border-white/10 pt-4">
+                    <div className="text-xs text-slate-300 text-center">
+                      AI Prediction from Market Analysis
+                    </div>
+                    
                   </div>
                 </div>
 
@@ -374,9 +436,9 @@ export default function StockRiskDashboard() {
               {/* Financial Metrics Grid */}
               <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatBox
-                  title="% Yield"
-                  value={data?.dividendYield ? (data.dividendYield).toFixed(2) + "%" : "—"}
-                  tooltip="Dividend yield - annual dividends as a percentage of stock price"
+                  title="Omega Ratio"
+                  value={advancedMetrics[selected]?.omega_ratio ? advancedMetrics[selected].omega_ratio.toFixed(3) : "—"}
+                  tooltip="Omega ratio - measures risk-adjusted returns by comparing gains to losses above/below a threshold"
                 />
                 <StatBox
                   title="Beta"
@@ -404,15 +466,15 @@ export default function StockRiskDashboard() {
                   tooltip="Debt-to-Equity ratio - measures financial leverage (debt relative to shareholder equity)"
                 />
                 <StatBox
-                  title="Price per Share"
-                  value={data?.price ? `$${data.price.toFixed(2)}` : "—"}
-                  tooltip="Current stock price per share"
+                  title="EVT Available"
+                  value={advancedMetrics[selected]?.evt_available ? "Yes" : advancedMetrics[selected]?.evt_available === false ? "No" : "—"}
+                  tooltip="Extreme Value Theory availability - indicates if sufficient extreme data points exist for tail risk analysis"
                 />
                 <StatBox
-                  title="Price Change Today"
-                  value={data?.changePercent != null ? `${data.changePercent >= 0 ? "+" : ""}${data.changePercent.toFixed(2)}%` : "—"}
-                  valueColor={data?.changePercent != null ? (data.changePercent >= 0 ? "text-green-400" : "text-red-400") : "text-white"}
-                  tooltip="Percentage change in stock price from previous trading day"
+                  title="Sortino Ratio"
+                  value={advancedMetrics[selected]?.sortino_ratio ? advancedMetrics[selected].sortino_ratio.toFixed(3) : "—"}
+                  valueColor={advancedMetrics[selected]?.sortino_ratio > 1 ? "text-green-400" : advancedMetrics[selected]?.sortino_ratio > 0 ? "text-yellow-400" : "text-red-400"}
+                  tooltip="Sortino ratio - measures risk-adjusted returns using downside deviation instead of total volatility"
                 />
               </div>
 

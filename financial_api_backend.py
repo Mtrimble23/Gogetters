@@ -276,6 +276,102 @@ async def get_cache_status():
         "database_status": "connected" if aerospike_repo.is_connected() else "disconnected"
     }
 
+@app.get("/predictions")
+async def get_stock_predictions():
+    """Get stock price predictions from Aerospike"""
+    try:
+        predictions = aerospike_repo.get_predictions()
+
+        if predictions:
+            return {
+                "success": True,
+                "data": predictions,
+                "count": len(predictions),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No predictions found in database",
+                "data": {},
+                "count": 0
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving predictions: {str(e)}")
+
+@app.get("/predictions/{symbol}")
+async def get_symbol_prediction(symbol: str):
+    """Get prediction for a specific stock symbol"""
+    symbol = symbol.upper()
+
+    try:
+        predictions = aerospike_repo.get_predictions()
+
+        if predictions and symbol in predictions:
+            return {
+                "success": True,
+                "symbol": symbol,
+                "prediction": predictions[symbol],
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            return {
+                "success": False,
+                "symbol": symbol,
+                "error": f"No prediction found for {symbol}",
+                "prediction": None
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving prediction for {symbol}: {str(e)}")
+
+@app.get("/advanced-metrics")
+async def get_all_advanced_metrics():
+    """Get advanced risk metrics for all stocks from Aerospike"""
+    try:
+        all_metrics = aerospike_repo.get_all_advanced_metrics()
+
+        if all_metrics:
+            return {
+                "success": True,
+                "data": all_metrics,
+                "count": len(all_metrics),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No advanced metrics found in database",
+                "data": {},
+                "count": 0
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving advanced metrics: {str(e)}")
+
+@app.get("/advanced-metrics/{symbol}")
+async def get_symbol_advanced_metrics(symbol: str):
+    """Get advanced risk metrics for a specific stock symbol"""
+    symbol = symbol.upper()
+
+    try:
+        metrics = aerospike_repo.get_advanced_risk_metrics(symbol)
+
+        if metrics:
+            return {
+                "success": True,
+                "symbol": symbol,
+                "metrics": metrics,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            return {
+                "success": False,
+                "symbol": symbol,
+                "error": f"No advanced metrics found for {symbol}",
+                "metrics": None
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving advanced metrics for {symbol}: {str(e)}")
+
 # Conditionally register AI endpoints only if news scraper is available
 if news_scraper is not None:
     print("REGISTER: AI summary endpoints...")

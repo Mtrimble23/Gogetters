@@ -236,7 +236,130 @@ class AerospikeRepository:
             stats['connection_test'] = test_result
         
         return stats
-    
+
+    def store_predictions(self, predictions: Dict[str, float]) -> bool:
+        """Store stock price predictions in tkrPreds bin"""
+        if not self.is_connected():
+            print("⚠️  Aerospike not connected, skipping prediction storage")
+            return False
+
+        try:
+            import aerospike
+            key = (self.namespace, self.set_name, 'tkrPreds')
+
+            # Prepare prediction data with timestamp
+            storage_data = {
+                'tkrPreds': json.dumps(predictions),
+                'updated': datetime.now(timezone.utc).isoformat(),
+                'count': len(predictions)
+            }
+
+            # Store with TTL policy
+            policy = {'gen': aerospike.POLICY_GEN_IGNORE}
+            self.client.put(key, storage_data, policy=policy)
+
+            print(f"SUCCESS: Stored predictions for {len(predictions)} stocks")
+            return True
+
+        except Exception as e:
+            print(f"ERROR: Failed to store predictions: {e}")
+            return False
+
+    def get_predictions(self) -> Optional[Dict[str, float]]:
+        """Retrieve stored stock predictions from tkrPreds bin"""
+        if not self.is_connected():
+            return None
+
+        try:
+            key = (self.namespace, self.set_name, 'tkrPreds')
+            (key, metadata, bins) = self.client.get(key)
+
+            if bins and 'tkrPreds' in bins:
+                predictions = json.loads(bins['tkrPreds'])
+                return predictions
+
+            return None
+
+        except Exception as e:
+            print(f"⚠️  Could not retrieve predictions: {e}")
+            return None
+
+    def store_advanced_risk_metrics(self, symbol: str, risk_metrics: Dict[str, Any]) -> bool:
+        """Store advanced risk metrics for a specific stock symbol"""
+        if not self.is_connected():
+            print(f"⚠️  Aerospike not connected, skipping advanced risk storage for {symbol}")
+            return False
+
+        try:
+            import aerospike
+            key = (self.namespace, self.set_name, f'advRisk_{symbol}')
+
+            # Prepare risk metrics data with timestamp
+            storage_data = {
+                'symbol': symbol,
+                'advRisk': json.dumps(risk_metrics),
+                'updated': datetime.now(timezone.utc).isoformat(),
+                'metrics_count': len(risk_metrics)
+            }
+
+            # Store with TTL policy
+            policy = {'gen': aerospike.POLICY_GEN_IGNORE}
+            self.client.put(key, storage_data, policy=policy)
+
+            print(f"SUCCESS: Stored advanced risk metrics for {symbol}")
+            return True
+
+        except Exception as e:
+            print(f"ERROR: Failed to store advanced risk metrics for {symbol}: {e}")
+            return False
+
+    def get_advanced_risk_metrics(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Retrieve stored advanced risk metrics for a specific stock symbol"""
+        if not self.is_connected():
+            return None
+
+        try:
+            key = (self.namespace, self.set_name, f'advRisk_{symbol}')
+            (key, metadata, bins) = self.client.get(key)
+
+            if bins and 'advRisk' in bins:
+                risk_metrics = json.loads(bins['advRisk'])
+                return risk_metrics
+
+            return None
+
+        except Exception as e:
+            print(f"⚠️  Could not retrieve advanced risk metrics for {symbol}: {e}")
+            return None
+
+    def store_all_advanced_metrics(self, all_metrics: Dict[str, Dict[str, Any]]) -> bool:
+        """Store advanced risk metrics for all stocks in a single operation"""
+        if not self.is_connected():
+            print("⚠️  Aerospike not connected, skipping advanced metrics storage")
+            return False
+
+        success_count = 0
+        total_count = len(all_metrics)
+
+        for symbol, metrics in all_metrics.items():
+            if self.store_advanced_risk_metrics(symbol, metrics):
+                success_count += 1
+
+        print(f"SUCCESS: Stored advanced risk metrics for {success_count}/{total_count} stocks")
+        return success_count == total_count
+
+    def get_all_advanced_metrics(self) -> Dict[str, Dict[str, Any]]:
+        """Retrieve advanced risk metrics for all tracked stocks"""
+        stocks = ['AAPL', 'AMZN', 'GOOGL', 'NVDA', 'META', 'TSLA']
+        all_metrics = {}
+
+        for symbol in stocks:
+            metrics = self.get_advanced_risk_metrics(symbol)
+            if metrics:
+                all_metrics[symbol] = metrics
+
+        return all_metrics
+
     def close(self):
         """Close Aerospike connection"""
         if self.client and self.connected:
